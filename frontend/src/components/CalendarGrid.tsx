@@ -26,6 +26,7 @@ const dayKey = (d: Date) => d.toISOString().slice(0, 10);
 
 const CalendarGrid: React.FC<CalendarGridProps> = ({ events, onEventClick }) => {
   const [current, setCurrent] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const monthStart = startOfMonth(current);
   const monthEnd = endOfMonth(current);
@@ -81,8 +82,8 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({ events, onEventClick }) => 
           <h3 className="text-xl sm:text-2xl font-semibold text-gray-800 capitalize">{monthName}</h3>
         </div>
 
-        {/* Desktop grid */}
-        <div className="hidden sm:grid grid-cols-7 gap-px bg-gray-200 rounded-lg overflow-hidden shadow-lg">
+        {/* Сетка 7 колонок: на десктопе показываем детали, на мобильных — точки */}
+        <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-lg overflow-hidden shadow-lg text-[11px] sm:text-sm">
           {["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d) => (
             <div key={d} className="bg-gray-100 py-3 text-center text-sm font-semibold text-gray-700 border-b border-gray-200">
               {d}
@@ -92,85 +93,91 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({ events, onEventClick }) => 
             const key = dayKey(d);
             const list = eventsByDay[key] || [];
             return (
-              <div
+              <button
                 key={key}
                 className={
-                  `bg-white min-h-[120px] sm:min-h-[140px] md:min-h-[160px] p-2 relative border-r border-b border-gray-100 hover:bg-gray-50 transition-colors ` +
+                  `bg-white min-h-[64px] xs:min-h-[88px] sm:min-h-[120px] md:min-h-[160px] p-1 sm:p-2 relative border-r border-b border-gray-100 hover:bg-gray-50 transition-colors text-left ` +
                   (isSameMonth(d, monthStart) ? '' : 'opacity-50 bg-gray-50 ') +
-                  (isToday(d) ? 'ring-2 ring-primary-500 bg-primary-50' : '')
+                  (isToday(d) ? 'ring-2 ring-primary-500 bg-primary-50' : '') +
+                  (selectedDate && dayKey(d) === dayKey(selectedDate) ? ' outline outline-2 outline-primary-400' : '')
                 }
+                onClick={() => setSelectedDate(d)}
               >
-                <div className={`text-sm font-medium mb-2 ${isToday(d) ? 'text-primary-700' : 'text-gray-700'}`}>
+                <div className={`text-[11px] sm:text-sm font-medium mb-1 sm:mb-2 ${isToday(d) ? 'text-primary-700' : 'text-gray-700'}`}>
                   {d.getDate()}
                 </div>
-                <div className="space-y-1 max-h-[calc(100%-32px)] overflow-hidden">
-                  {list.slice(0, 3).map(ev => (
-                    <button
-                      key={ev.id}
-                      onClick={() => onEventClick(ev)}
-                      title={`${ev.title} • ${new Date(ev.datetime).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})} • ${ev.location}`}
-                      className="w-full flex items-center space-x-2 text-left group hover:bg-primary-50 p-1 rounded transition-colors"
-                    >
-                      {ev.image_url && (
-                        <img 
-                          src={ev.image_url} 
-                          alt={ev.title} 
-                          className="w-6 h-6 rounded object-cover border border-gray-200 flex-shrink-0" 
-                        />
-                      )}
-                      <span className="text-[12px] text-gray-800 truncate group-hover:text-primary-700 group-hover:underline">
-                        {ev.title}
-                      </span>
-                    </button>
-                  ))}
-                  {list.length > 3 && (
-                    <div className="text-[11px] text-primary-600 font-medium bg-primary-100 px-2 py-1 rounded">
-                      +{list.length - 3} ещё
-                    </div>
-                  )}
+                {/* Desktop: подробный список (первые 3) */}
+                <div className="hidden sm:block">
+                  <div className="space-y-1 max-h-[calc(100%-32px)] overflow-hidden">
+                    {list.slice(0, 3).map(ev => (
+                      <button
+                        key={ev.id}
+                        onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
+                        title={`${ev.title} • ${new Date(ev.datetime).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})} • ${ev.location}`}
+                        className="w-full flex items-center space-x-2 text-left group hover:bg-primary-50 p-1 rounded transition-colors"
+                      >
+                        {ev.image_url && (
+                          <img src={ev.image_url} alt={ev.title} className="w-6 h-6 rounded object-cover border border-gray-200 flex-shrink-0" />
+                        )}
+                        <span className="text-[12px] text-gray-800 truncate group-hover:text-primary-700 group-hover:underline">{ev.title}</span>
+                      </button>
+                    ))}
+                    {list.length > 3 && (
+                      <div className="text-[11px] text-primary-600 font-medium bg-primary-100 px-2 py-1 rounded">
+                        +{list.length - 3} ещё
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+                {/* Mobile: точки-индикаторы */}
+                <div className="flex sm:hidden items-center gap-0.5 mt-1">
+                  {Array.from({ length: Math.min(list.length, 5) }).map((_, i) => (
+                    <span key={i} className="inline-block w-1.5 h-1.5 rounded-full bg-primary-500"></span>
+                  ))}
+                </div>
+              </button>
             );
           })}
         </div>
 
-        {/* Mobile list */}
-        <div className="sm:hidden space-y-3">
-          {days.map((d) => {
-            const key = dayKey(d);
-            const list = eventsByDay[key] || [];
-            return (
-              <div key={key} className="card p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className={`text-base font-semibold ${isToday(d) ? 'text-primary-700' : 'text-gray-800'}`}>{d.toLocaleDateString('ru-RU')}</div>
-                  {!isSameMonth(d, monthStart) && <span className="text-xs text-gray-400">другая дата</span>}
-                </div>
-                <div className="space-y-2">
-                  {list.length === 0 && (
-                    <div className="text-sm text-gray-500">Нет мероприятий</div>
-                  )}
-                  {list.slice(0, 5).map(ev => (
-                    <button
-                      key={ev.id}
-                      onClick={() => onEventClick(ev)}
-                      title={`${ev.title} • ${new Date(ev.datetime).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})} • ${ev.location}`}
-                      className="w-full flex items-center space-x-3 text-left"
-                    >
-                      {ev.image_url && (
-                        <img src={ev.image_url} alt={ev.title} className="w-10 h-10 rounded object-cover border" />
-                      )}
-                      <div>
-                        <div className="text-sm font-medium text-gray-900 truncate">{ev.title}</div>
-                        <div className="text-xs text-gray-600">
-                          {new Date(ev.datetime).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})} • {ev.location}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+        {/* Список под календарём — только для мобильных */}
+        <div className="mt-6 space-y-3 sm:hidden">
+          <div className="flex items-center justify-between">
+            <h4 className="text-lg font-semibold text-gray-900">
+              {selectedDate ? `Мероприятия на ${selectedDate.toLocaleDateString('ru-RU')}` : 'Все мероприятия месяца'}
+            </h4>
+            {selectedDate && (
+              <button className="btn-secondary px-3 py-1 text-sm" onClick={() => setSelectedDate(null)}>Показать все</button>
+            )}
+          </div>
+          <div className="grid gap-3">
+            {(() => {
+              const filterFn = (e: Event) => {
+                const d = new Date(e.datetime);
+                if (!isSameMonth(d, monthStart)) return false;
+                if (!selectedDate) return true;
+                return dayKey(d) === dayKey(selectedDate);
+              };
+              const visible = events.filter(filterFn).sort((a, b) => +new Date(a.datetime) - +new Date(b.datetime));
+              if (visible.length === 0) {
+                return <div className="text-sm text-gray-500">На выбранный период нет мероприятий</div>;
+              }
+              return visible.map(ev => (
+                <button
+                  key={ev.id}
+                  onClick={() => onEventClick(ev)}
+                  className="card p-3 flex items-center text-left hover:shadow-md transition-shadow"
+                  title={`${ev.title} • ${new Date(ev.datetime).toLocaleString('ru-RU')} • ${ev.location}`}
+                >
+                  {ev.image_url && <img src={ev.image_url} alt={ev.title} className="w-12 h-12 rounded object-cover border mr-3" />}
+                  <div className="min-w-0">
+                    <div className="font-medium text-gray-900 truncate">{ev.title}</div>
+                    <div className="text-xs text-gray-600 truncate">{new Date(ev.datetime).toLocaleString('ru-RU')} • {ev.location}</div>
+                  </div>
+                </button>
+              ));
+            })()}
+          </div>
         </div>
       </div>
     </section>
