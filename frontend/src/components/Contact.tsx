@@ -74,19 +74,25 @@ const Contact: React.FC = () => {
               <h4 className="font-semibold text-gray-900 mb-4">Мы в социальных сетях</h4>
               <div className="flex space-x-4">
                 <a
-                  href="#"
+                  href="https://facebook.com"
+                  target="_blank"
+                  rel="noreferrer"
                   className="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg transition-colors"
                 >
                   <Facebook className="h-5 w-5 text-gray-600" />
                 </a>
                 <a
-                  href="#"
+                  href="https://instagram.com"
+                  target="_blank"
+                  rel="noreferrer"
                   className="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg transition-colors"
                 >
                   <Instagram className="h-5 w-5 text-gray-600" />
                 </a>
                 <a
-                  href="#"
+                  href="https://twitter.com"
+                  target="_blank"
+                  rel="noreferrer"
                   className="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg transition-colors"
                 >
                   <Twitter className="h-5 w-5 text-gray-600" />

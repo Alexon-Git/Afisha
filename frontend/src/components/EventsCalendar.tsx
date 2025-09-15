@@ -13,6 +13,14 @@ interface EventsCalendarProps {
 const EventsCalendar: React.FC<EventsCalendarProps> = ({ events, onEventClick, loading }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
+  const handleCalendarChange = (value: any) => {
+    const next = Array.isArray(value) ? value[0] : value;
+    // react-calendar может вернуть null в некоторых режимах
+    if (next instanceof Date) {
+      setSelectedDate(next);
+    }
+  };
+
   // Группируем события по датам
   const eventsByDate = events.reduce((acc, event) => {
     const date = new Date(event.datetime).toDateString();
@@ -45,13 +53,13 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({ events, onEventClick, l
     });
   };
 
-  const formatEventDate = (datetime: string) => {
-    return new Date(datetime).toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-  };
+  // const formatEventDate = (datetime: string) => {
+  //   return new Date(datetime).toLocaleDateString('ru-RU', {
+  //     day: 'numeric',
+  //     month: 'long',
+  //     year: 'numeric'
+  //   });
+  // };
 
   if (loading) {
     return (
@@ -87,7 +95,7 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({ events, onEventClick, l
             </div>
             
             <Calendar
-              onChange={setSelectedDate}
+              onChange={handleCalendarChange}
               value={selectedDate}
               locale="ru-RU"
               className="w-full"

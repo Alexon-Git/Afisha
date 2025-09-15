@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { eventsApi, Event, EventCreate, EventUpdate } from '../services/api';
+import { eventsApi, Event, EventCreate } from '../services/api';
 import { 
   Plus, 
   Edit, 
   Trash2, 
   LogOut, 
   Calendar, 
-  MapPin, 
-  Clock,
-  Upload,
+  
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';

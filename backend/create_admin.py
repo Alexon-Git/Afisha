@@ -7,7 +7,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.database import SessionLocal
-from app.models.user import User
+from app.models import User  # ensures User and Event are both registered
 from app.auth.auth import get_password_hash
 from app.config import settings
 

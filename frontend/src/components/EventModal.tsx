@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Clock, MapPin, User } from 'lucide-react';
+import { X, Calendar, Clock, MapPin } from 'lucide-react';
 import { Event } from '../services/api';
 
 interface EventModalProps {

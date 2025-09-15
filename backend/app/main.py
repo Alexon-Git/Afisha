@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
+# Ensure all models are imported before metadata creation
+from .models import user as _user_model  # noqa: F401
+from .models import event as _event_model  # noqa: F401
 from .routers import auth, events
 from .config import settings
 import os
