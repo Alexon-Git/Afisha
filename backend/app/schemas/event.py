@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+from typing import List
 
 
 class EventBase(BaseModel):
@@ -29,3 +30,11 @@ class Event(EventBase):
 
     class Config:
         from_attributes = True
+
+
+class PaginatedEvents(BaseModel):
+    items: List[Event]
+    page: int
+    limit: int
+    total_items: int
+    total_pages: int

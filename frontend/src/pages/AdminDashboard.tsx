@@ -34,7 +34,14 @@ const AdminDashboard: React.FC = () => {
   const fetchEvents = async () => {
     try {
       const response = await eventsApi.getAll();
-      setEvents(response.data);
+      const data = response.data as any;
+      if (Array.isArray(data)) {
+        setEvents(data);
+      } else {
+        console.error('Unexpected events payload:', data);
+        toast.error('Ошибка данных мероприятий');
+        setEvents([]);
+      }
     } catch (error) {
       toast.error('Ошибка при загрузке мероприятий');
     } finally {

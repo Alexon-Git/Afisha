@@ -3,7 +3,7 @@ import { eventsApi, Event } from '../services/api';
 import Header from '../components/Header';
 import Hero from '../components/Hero';
 import About from '../components/About';
-import EventsCalendar from '../components/EventsCalendar';
+import CalendarGrid from '../components/CalendarGrid';
 import Contact from '../components/Contact';
 import EventModal from '../components/EventModal';
 import Footer from '../components/Footer';
@@ -45,11 +45,21 @@ const HomePage: React.FC = () => {
       <main>
         <Hero />
         <About />
-        <EventsCalendar 
-          events={events} 
-          onEventClick={handleEventClick}
-          loading={loading}
-        />
+        {loading ? (
+          <section id="events" className="py-20 bg-gray-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Загрузка мероприятий...</p>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <CalendarGrid
+            events={events}
+            onEventClick={handleEventClick}
+          />
+        )}
         <Contact />
       </main>
       <Footer />

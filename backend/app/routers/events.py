@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.event import Event
 from ..models.user import User
-from ..schemas.event import Event as EventSchema, EventCreate, EventUpdate
+from ..schemas.event import Event as EventSchema, EventCreate, EventUpdate, PaginatedEvents
 from ..auth.auth import get_current_admin_user
 import os
 import shutil
@@ -17,10 +17,28 @@ UPLOAD_DIR = "app/static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-@router.get("/", response_model=List[EventSchema])
-def read_events(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    events = db.query(Event).offset(skip).limit(limit).all()
-    return events
+@router.get("/", response_model=PaginatedEvents)
+def read_events(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
+    if page < 1:
+        page = 1
+    if limit < 1:
+        limit = 10
+    total_items = db.query(Event).count()
+    total_pages = (total_items + limit - 1) // limit
+    items = (
+        db.query(Event)
+        .order_by(Event.datetime.asc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+    return {
+        "items": items,
+        "page": page,
+        "limit": limit,
+        "total_items": total_items,
+        "total_pages": total_pages,
+    }
 
 
 @router.get("/{event_id}", response_model=EventSchema)

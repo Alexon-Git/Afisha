@@ -4,9 +4,6 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // Интерцептор для добавления токена авторизации
@@ -73,7 +70,7 @@ export interface TokenResponse {
 }
 
 export const eventsApi = {
-  getAll: () => api.get<Event[]>('/events/'),
+  getAll: (page = 1, limit = 10) => api.get(`/events?page=${page}&limit=${limit}`),
   getById: (id: number) => api.get<Event>(`/events/${id}`),
   create: (data: EventCreate) => api.post<Event>('/events/', data),
   update: (id: number, data: EventUpdate) => api.put<Event>(`/events/${id}`, data),
@@ -90,7 +87,12 @@ export const eventsApi = {
 };
 
 export const authApi = {
-  login: (data: LoginData) => api.post<TokenResponse>('/auth/login', data),
+  login: (data: LoginData) => {
+    const body = `grant_type=password&username=${encodeURIComponent(data.username)}&password=${encodeURIComponent(data.password)}`;
+    return api.post<TokenResponse>('/auth/login', body, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+  },
   me: () => api.get<User>('/auth/me'),
 };
 

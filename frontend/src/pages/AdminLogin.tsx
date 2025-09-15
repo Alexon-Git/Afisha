@@ -24,7 +24,14 @@ const AdminLogin: React.FC = () => {
       toast.success('Успешный вход в систему!');
       navigate('/admin');
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Ошибка входа в систему');
+      const detail = error?.response?.data?.detail;
+      let message = 'Ошибка входа в систему';
+      if (typeof detail === 'string') {
+        message = detail;
+      } else if (Array.isArray(detail)) {
+        message = detail.map((d: any) => d?.msg || 'Ошибка').join('\n');
+      }
+      toast.error(message);
     } finally {
       setLoading(false);
     }
