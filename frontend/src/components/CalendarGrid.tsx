@@ -22,7 +22,31 @@ const addDays = (d: Date, days: number) => {
   return date;
 };
 
-const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+const dayKey = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${da}`;
+};
+
+// Robust parsing for various date formats coming from API
+const parseEventDate = (value: string): Date | null => {
+  // ISO or RFC
+  let dt = new Date(value);
+  if (!isNaN(dt.getTime())) return dt;
+  // Replace space with 'T'
+  dt = new Date(value.replace(' ', 'T'));
+  if (!isNaN(dt.getTime())) return dt;
+  // dd.mm.yyyy, HH:MM:SS or dd.mm.yyyy, HH:MM
+  const m = value.match(/(\d{2})[\.\/-](\d{2})[\.\/-](\d{4})(?:,?\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (m) {
+    const [ , dd, mm, yyyy, HH = '00', MM = '00', SS = '00' ] = m;
+    const norm = `${yyyy}-${mm}-${dd}T${HH}:${MM}:${SS}`;
+    dt = new Date(norm);
+    if (!isNaN(dt.getTime())) return dt;
+  }
+  return null;
+};
 
 const CalendarGrid: React.FC<CalendarGridProps> = ({ events, onEventClick }) => {
   const [current, setCurrent] = useState<Date>(new Date());
@@ -38,7 +62,9 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({ events, onEventClick }) => 
   const eventsByDay = useMemo(() => {
     const map: Record<string, Event[]> = {};
     for (const e of events) {
-      const k = dayKey(new Date(e.datetime));
+      const parsed = parseEventDate(e.datetime);
+      if (!parsed) continue;
+      const k = dayKey(parsed);
       (map[k] ||= []).push(e);
     }
     return map;
