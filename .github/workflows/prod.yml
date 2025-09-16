@@ -1,0 +1,103 @@
+name: prod
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: prod-deploy
+  cancel-in-progress: true
+
+jobs:
+  build_frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install deps (frontend)
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Archive web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: frontend/build/
+          retention-days: 1
+
+  deploy_project:
+    needs: build_frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: build/frontend
+
+      - name: Checkout (to copy backend sources)
+        uses: actions/checkout@v4
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Prepare directories on server
+        env:
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+        run: |
+          sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no $USERNAME@$HOST "
+            mkdir -p /var/www/alexon/Afisha/frontend &&
+            mkdir -p /var/www/alexon/Afisha/backend
+          "
+
+      - name: Upload frontend build
+        env:
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+        run: |
+          sshpass -p "$PASSWORD" scp -o StrictHostKeyChecking=no -r build/frontend/* $USERNAME@$HOST:/var/www/alexon/Afisha/frontend/
+
+      - name: Upload backend sources
+        env:
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+        run: |
+          rsync -az --delete -e "sshpass -p '$PASSWORD' ssh -o StrictHostKeyChecking=no" \
+            --exclude ".env" --exclude "__pycache__" --exclude ".venv" --exclude "env" \
+            backend/ $USERNAME@$HOST:/var/www/alexon/Afisha/backend/
+
+      - name: Set permissions and restart services
+        env:
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+        run: |
+          sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no $USERNAME@$HOST "
+            sudo chown -R www-data:www-data /var/www/alexon/Afisha/frontend &&
+            sudo chmod -R 755 /var/www/alexon/Afisha/frontend &&
+            cd /var/www/alexon/Afisha/backend &&
+            sudo docker compose pull || true &&
+            sudo docker compose up -d --build &&
+            sudo systemctl restart nginx &&
+            systemctl status nginx --no-pager || true
+          "
+
+
