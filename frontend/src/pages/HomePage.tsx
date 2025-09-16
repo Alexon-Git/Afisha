@@ -7,12 +7,18 @@ import EventsFeed from '../components/EventsFeed';
 import Contact from '../components/Contact';
 import EventModal from '../components/EventModal';
 import Footer from '../components/Footer';
+import DateScroller from '../components/DateScroller';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 
 const HomePage: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const city = 'Санкт‑Петербург';
 
   useEffect(() => {
     fetchEvents();
@@ -45,8 +51,29 @@ const HomePage: React.FC = () => {
       <Header />
       <main>
         <Hero />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-3">
+            Афиша событий в {city}{' '}
+            {endDate
+              ? `[${format(startDate, 'd', { locale: ru })}–${format(endDate, 'd LLLL', { locale: ru })}]`
+              : `[${format(startDate, 'd LLLL', { locale: ru })}]`}
+          </h2>
+          <DateScroller
+            startSelectedDate={startDate}
+            endSelectedDate={endDate}
+            onDateChange={(start, end) => {
+              setStartDate(start);
+              setEndDate(end);
+            }}
+            totalDays={90}
+          />
+        </div>
         <About />
-        <EventsFeed onEventClick={(ev) => { setSelectedEvent(ev); setIsModalOpen(true); }} />
+        <EventsFeed
+          onEventClick={(ev) => { setSelectedEvent(ev); setIsModalOpen(true); }}
+          dateFrom={format(startDate, 'yyyy-MM-dd')}
+          dateTo={endDate ? format(endDate, 'yyyy-MM-dd') : undefined}
+        />
         <Contact />
       </main>
       <Footer />

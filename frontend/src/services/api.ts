@@ -90,7 +90,7 @@ export const eventsApi = {
   getAll: (
     page = 1,
     limit = 10,
-    params?: { date?: string; category?: string; sort?: 'asc' | 'desc' }
+    params?: { date?: string; date_from?: string; date_to?: string; category?: string; sort?: 'asc' | 'desc' }
   ) => api.get(`/events`, { params: { page, limit, ...params } }),
   getById: (id: number) => api.get<Event>(`/events/${id}`),
   create: (data: EventCreate) => api.post<Event>('/events/', data),

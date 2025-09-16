@@ -23,6 +23,8 @@ def read_events(
     page: int = 1,
     limit: int = 10,
     date: Optional[str] = Query(None, description="today | tomorrow | weekend | YYYY-MM-DD"),
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
     category: Optional[str] = Query(None),
     sort: Optional[str] = Query("asc", description="asc | desc"),
     db: Session = Depends(get_db)
@@ -38,8 +40,25 @@ def read_events(
     if category:
         query = query.filter(Event.category == category)
 
-    # Date filter
-    if date:
+    # Date filter by presets or explicit range
+    if date_from or date_to:
+        try:
+            start = None
+            end = None
+            if date_from:
+                y, m, d = map(int, date_from.split("-"))
+                start = datetime(y, m, d, 0, 0, 0)
+            if date_to:
+                y2, m2, d2 = map(int, date_to.split("-"))
+                end = datetime(y2, m2, d2, 23, 59, 59)
+            # If only date_from provided, filter that specific day
+            if start and not end:
+                end = start.replace(hour=23, minute=59, second=59)
+            if start and end:
+                query = query.filter(Event.datetime >= start, Event.datetime <= end)
+        except Exception:
+            pass
+    elif date:
         now = datetime.now()
         start = None
         end = None

@@ -3,7 +3,9 @@ import { eventsApi, Event } from '../services/api';
 import { Calendar, MapPin, Filter, ChevronDown } from 'lucide-react';
 
 interface FeedFilters {
-  date?: string; // today | tomorrow | weekend | YYYY-MM-DD
+  date?: string; // today | tomorrow | weekend | YYYY-MM-DD (legacy)
+  date_from?: string; // YYYY-MM-DD
+  date_to?: string;   // YYYY-MM-DD
   category?: string;
   sort?: 'asc' | 'desc';
 }
@@ -30,7 +32,7 @@ const formatDateTime = (datetime: string) => {
   });
 };
 
-const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void }> = ({ onEventClick }) => {
+const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void; dateFrom?: string; dateTo?: string }> = ({ onEventClick, dateFrom, dateTo }) => {
   const [filters, setFilters] = useState<FeedFilters>({ sort: 'asc' });
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<Event[]>([]);
@@ -50,12 +52,18 @@ const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void }> = ({ onEve
     }
   };
 
+  // inject external date range from props
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, date_from: dateFrom || undefined, date_to: dateTo || undefined, date: undefined }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo]);
+
   // reload on filters change
   useEffect(() => {
     setPage(1);
     loadPage(1, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.date, filters.category, filters.sort]);
+  }, [filters.date, filters.date_from, filters.date_to, filters.category, filters.sort]);
 
   const onLoadMore = () => {
     if (page < totalPages) {
@@ -83,9 +91,17 @@ const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void }> = ({ onEve
               ))}
               <input
                 type="date"
-                onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value || undefined }))}
+                onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value || undefined, date_from: undefined, date_to: undefined }))}
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700"
               />
+              {(filters.date_from || filters.date_to) && (
+                <button
+                  className="px-2 py-1 text-xs rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  onClick={() => setFilters(prev => ({ ...prev, date_from: undefined, date_to: undefined }))}
+                >
+                  Сбросить диапазон
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 ml-auto">
               <select
