@@ -10,6 +10,7 @@ class EventBase(BaseModel):
     datetime: datetime
     location: str
     image_url: Optional[str] = None
+    category: Optional[str] = None
 
 
 class EventCreate(EventBase):
@@ -22,6 +23,7 @@ class EventUpdate(BaseModel):
     datetime: Optional[datetime] = None
     location: Optional[str] = None
     image_url: Optional[str] = None
+    category: Optional[str] = None
 
 
 class Event(EventBase):

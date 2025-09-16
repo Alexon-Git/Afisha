@@ -22,7 +22,8 @@ const AdminDashboard: React.FC = () => {
     description: '',
     datetime: '',
     location: '',
-    image_url: ''
+    image_url: '',
+    category: ''
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const navigate = useNavigate();
@@ -33,15 +34,10 @@ const AdminDashboard: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await eventsApi.getAll();
+      const response = await eventsApi.getAll(1, 50);
       const data = response.data as any;
-      if (Array.isArray(data)) {
-        setEvents(data);
-      } else {
-        console.error('Unexpected events payload:', data);
-        toast.error('Ошибка данных мероприятий');
-        setEvents([]);
-      }
+      const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+      setEvents(items);
     } catch (error) {
       toast.error('Ошибка при загрузке мероприятий');
     } finally {
@@ -61,7 +57,8 @@ const AdminDashboard: React.FC = () => {
       description: '',
       datetime: '',
       location: '',
-      image_url: ''
+      image_url: '',
+      category: ''
     });
     setShowModal(true);
   };
@@ -73,7 +70,8 @@ const AdminDashboard: React.FC = () => {
       description: event.description || '',
       datetime: new Date(event.datetime).toISOString().slice(0, 16),
       location: event.location,
-      image_url: event.image_url || ''
+      image_url: event.image_url || '',
+      category: event.category || ''
     });
     setShowModal(true);
   };
@@ -328,6 +326,22 @@ const AdminDashboard: React.FC = () => {
                       placeholder="Введите место проведения"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Категория
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                    className="input-field"
+                  >
+                    <option value="">Не указано</option>
+                    <option value="concert">Концерт</option>
+                    <option value="theatre">Театр</option>
+                    <option value="exhibition">Выставка</option>
+                  </select>
                 </div>
 
                 <div>

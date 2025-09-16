@@ -3,7 +3,7 @@ import { eventsApi, Event } from '../services/api';
 import Header from '../components/Header';
 import Hero from '../components/Hero';
 import About from '../components/About';
-import CalendarGrid from '../components/CalendarGrid';
+import EventsFeed from '../components/EventsFeed';
 import Contact from '../components/Contact';
 import EventModal from '../components/EventModal';
 import Footer from '../components/Footer';
@@ -21,7 +21,8 @@ const HomePage: React.FC = () => {
   const fetchEvents = async () => {
     try {
       const response = await eventsApi.getAll();
-      setEvents(response.data);
+      const paginated = response.data as any;
+      setEvents(paginated.items ?? paginated);
     } catch (error) {
       console.error('Ошибка при загрузке мероприятий:', error);
     } finally {
@@ -45,21 +46,7 @@ const HomePage: React.FC = () => {
       <main>
         <Hero />
         <About />
-        {loading ? (
-          <section id="events" className="py-20 bg-gray-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Загрузка мероприятий...</p>
-              </div>
-            </div>
-          </section>
-        ) : (
-          <CalendarGrid
-            events={events}
-            onEventClick={handleEventClick}
-          />
-        )}
+        <EventsFeed onEventClick={(ev) => { setSelectedEvent(ev); setIsModalOpen(true); }} />
         <Contact />
       </main>
       <Footer />

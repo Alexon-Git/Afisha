@@ -12,6 +12,7 @@ class Event(Base):
     datetime = Column(DateTime, nullable=False, index=True)
     location = Column(String, nullable=False)
     image_url = Column(String, nullable=True)
+    category = Column(String, nullable=True, index=True)
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     # Связь с пользователем

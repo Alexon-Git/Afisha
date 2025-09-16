@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const isBrowser = typeof window !== 'undefined';
+const isCRADev = isBrowser && window.location && window.location.hostname === 'localhost' && window.location.port === '3000';
+// Radical rule: on CRA dev (localhost:3000) ALWAYS use relative URLs → proxy handles 8039
+const API_BASE_URL = isCRADev
+  ? ''
+  : (process.env.REACT_APP_API_URL || (isBrowser ? window.location.origin : 'http://localhost:8039'));
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -20,8 +25,17 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      const url: string | undefined = error.config?.url;
+      const onLoginRequest = url?.includes('/auth/login');
+      const isOnLoginPage = typeof window !== 'undefined' && window.location.pathname === '/admin/login';
+      // Do NOT redirect for invalid login attempt; let the page show the error
+      if (onLoginRequest || isOnLoginPage) {
+        return Promise.reject(error);
+      }
       localStorage.removeItem('access_token');
-      window.location.href = '/admin/login';
+      if (typeof window !== 'undefined') {
+        window.location.href = '/admin/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -34,6 +48,7 @@ export interface Event {
   datetime: string;
   location: string;
   image_url?: string;
+  category?: string;
   creator_id?: number;
 }
 
@@ -43,6 +58,7 @@ export interface EventCreate {
   datetime: string;
   location: string;
   image_url?: string;
+  category?: string;
 }
 
 export interface EventUpdate {
@@ -51,6 +67,7 @@ export interface EventUpdate {
   datetime?: string;
   location?: string;
   image_url?: string;
+  category?: string;
 }
 
 export interface User {
@@ -70,7 +87,11 @@ export interface TokenResponse {
 }
 
 export const eventsApi = {
-  getAll: (page = 1, limit = 10) => api.get(`/events?page=${page}&limit=${limit}`),
+  getAll: (
+    page = 1,
+    limit = 10,
+    params?: { date?: string; category?: string; sort?: 'asc' | 'desc' }
+  ) => api.get(`/events`, { params: { page, limit, ...params } }),
   getById: (id: number) => api.get<Event>(`/events/${id}`),
   create: (data: EventCreate) => api.post<Event>('/events/', data),
   update: (id: number, data: EventUpdate) => api.put<Event>(`/events/${id}`, data),

@@ -1,5 +1,5 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.event import Event
@@ -8,7 +8,8 @@ from ..schemas.event import Event as EventSchema, EventCreate, EventUpdate, Pagi
 from ..auth.auth import get_current_admin_user
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
+from sqlalchemy import asc, desc
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -18,20 +19,66 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.get("/", response_model=PaginatedEvents)
-def read_events(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
+def read_events(
+    page: int = 1,
+    limit: int = 10,
+    date: Optional[str] = Query(None, description="today | tomorrow | weekend | YYYY-MM-DD"),
+    category: Optional[str] = Query(None),
+    sort: Optional[str] = Query("asc", description="asc | desc"),
+    db: Session = Depends(get_db)
+):
     if page < 1:
         page = 1
     if limit < 1:
         limit = 10
-    total_items = db.query(Event).count()
+
+    query = db.query(Event)
+
+    # Category filter
+    if category:
+        query = query.filter(Event.category == category)
+
+    # Date filter
+    if date:
+        now = datetime.now()
+        start = None
+        end = None
+        if date == "today":
+            start = datetime(now.year, now.month, now.day, 0, 0, 0)
+            end = datetime(now.year, now.month, now.day, 23, 59, 59)
+        elif date == "tomorrow":
+            tmr = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            start = tmr
+            end = tmr.replace(hour=23, minute=59, second=59)
+        elif date == "weekend":
+            # upcoming Saturday and Sunday
+            weekday = now.weekday()  # Monday=0
+            days_until_sat = (5 - weekday) % 7
+            sat = (now.replace(hour=0, minute=0, second=0, microsecond=0)
+                   + timedelta(days=days_until_sat))
+            sun = sat + timedelta(days=1)
+            start = sat
+            end = sun.replace(hour=23, minute=59, second=59)
+        else:
+            try:
+                y, m, d = map(int, date.split("-"))
+                start = datetime(y, m, d, 0, 0, 0)
+                end = datetime(y, m, d, 23, 59, 59)
+            except Exception:
+                pass
+        if start and end:
+            query = query.filter(Event.datetime >= start, Event.datetime <= end)
+
+    # Sorting
+    if sort == "desc":
+        query = query.order_by(desc(Event.datetime))
+    else:
+        query = query.order_by(asc(Event.datetime))
+
+    total_items = query.count()
     total_pages = (total_items + limit - 1) // limit
-    items = (
-        db.query(Event)
-        .order_by(Event.datetime.asc())
-        .offset((page - 1) * limit)
-        .limit(limit)
-        .all()
-    )
+    items = query.offset((page - 1) * limit).limit(limit).all()
+
     return {
         "items": items,
         "page": page,

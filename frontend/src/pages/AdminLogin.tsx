@@ -21,6 +21,8 @@ const AdminLogin: React.FC = () => {
     try {
       const response = await authApi.login(data);
       localStorage.setItem('access_token', response.data.access_token);
+      // Валидация токена перед переходом
+      await authApi.me();
       toast.success('Успешный вход в систему!');
       navigate('/admin');
     } catch (error: any) {

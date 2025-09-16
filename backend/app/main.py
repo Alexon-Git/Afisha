@@ -12,6 +12,17 @@ import os
 # Создаем таблицы в базе данных
 Base.metadata.create_all(bind=engine)
 
+# Обновление схемы: добавить колонку category в таблицу events при отсутствии (SQLite)
+try:
+    with engine.connect() as conn:
+        res = conn.exec_driver_sql("PRAGMA table_info(events)")
+        columns = {row[1] for row in res.fetchall()}
+        if "category" not in columns:
+            conn.exec_driver_sql("ALTER TABLE events ADD COLUMN category VARCHAR")
+except Exception:
+    # Тихо игнорируем, если база не SQLite или операция не поддерживается
+    pass
+
 app = FastAPI(
     title="Афиша мероприятий",
     description="API для управления мероприятиями",
