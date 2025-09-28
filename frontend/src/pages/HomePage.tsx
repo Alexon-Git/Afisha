@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { eventsApi, Event } from '../services/api';
+import { Event } from '../services/api';
 import Header from '../components/Header';
 import Hero from '../components/Hero';
 import About from '../components/About';
@@ -12,29 +12,11 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 const HomePage: React.FC = () => {
-  const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const city = 'Санкт‑Петербург';
-
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  const fetchEvents = async () => {
-    try {
-      const response = await eventsApi.getAll();
-      const paginated = response.data as any;
-      setEvents(paginated.items ?? paginated);
-    } catch (error) {
-      console.error('Ошибка при загрузке мероприятий:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEventClick = (event: Event) => {
     setSelectedEvent(event);
@@ -51,28 +33,40 @@ const HomePage: React.FC = () => {
       <Header />
       <main>
         <Hero />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-          <h2 className="text-xl sm:text-2xl font-semibold mb-3">
-            Афиша событий в {city}{' '}
-            {endDate
-              ? `[${format(startDate, 'd', { locale: ru })}–${format(endDate, 'd LLLL', { locale: ru })}]`
-              : `[${format(startDate, 'd LLLL', { locale: ru })}]`}
-          </h2>
-          <DateScroller
-            startSelectedDate={startDate}
-            endSelectedDate={endDate}
-            onDateChange={(start, end) => {
-              setStartDate(start);
-              setEndDate(end);
-            }}
-            totalDays={90}
-          />
-        </div>
-        <About />
+        
+        {/* Date Selector Section */}
+        <section className="py-8 bg-white border-b border-gray-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                Афиша событий в {city}
+              </h2>
+              <p className="text-gray-600">
+                {startDate ? (
+                  endDate
+                    ? `События с ${format(startDate, 'd MMMM', { locale: ru })} по ${format(endDate, 'd MMMM yyyy', { locale: ru })}`
+                    : `События на ${format(startDate, 'd MMMM yyyy', { locale: ru })}`
+                ) : (
+                  'Выберите дату, чтобы отфильтровать мероприятия'
+                )}
+              </p>
+            </div>
+            <DateScroller
+              startSelectedDate={startDate}
+              endSelectedDate={endDate}
+              onDateChange={(start, end) => {
+                setStartDate(start as Date | undefined);
+                setEndDate(end as Date | undefined);
+              }}
+              totalDays={90}
+            />
+          </div>
+        </section>
+
         <EventsFeed
-          onEventClick={(ev) => { setSelectedEvent(ev); setIsModalOpen(true); }}
-          dateFrom={format(startDate, 'yyyy-MM-dd')}
-          dateTo={endDate ? format(endDate, 'yyyy-MM-dd') : undefined}
+          onEventClick={handleEventClick}
+          dateFrom={startDate ? format(startDate, 'yyyy-MM-dd') : undefined}
+          dateTo={startDate && endDate ? format(endDate, 'yyyy-MM-dd') : undefined}
         />
         <Contact />
       </main>

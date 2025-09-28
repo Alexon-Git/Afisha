@@ -1,43 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { eventsApi, Event } from '../services/api';
-import { Calendar, MapPin, Filter, ChevronDown } from 'lucide-react';
-
-interface FeedFilters {
-  date?: string; // today | tomorrow | weekend | YYYY-MM-DD (legacy)
-  date_from?: string; // YYYY-MM-DD
-  date_to?: string;   // YYYY-MM-DD
-  category?: string;
-  sort?: 'asc' | 'desc';
-}
-
-const datePresets = [
-  { key: 'today', label: 'Сегодня' },
-  { key: 'tomorrow', label: 'Завтра' },
-  { key: 'weekend', label: 'Выходные' },
-];
-
-const categories = [
-  { key: '', label: 'Все категории' },
-  { key: 'concert', label: 'Концерты' },
-  { key: 'theatre', label: 'Театр' },
-  { key: 'exhibition', label: 'Выставки' },
-];
+import EventCard from './EventCard';
+import EventFilters, { FilterState } from './EventFilters';
+import { Loader2, Calendar } from 'lucide-react';
 
 const PAGE_SIZE = 12;
 
-const formatDateTime = (datetime: string) => {
-  const date = new Date(datetime);
-  return date.toLocaleDateString('ru-RU', {
-    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
-  });
-};
-
 const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void; dateFrom?: string; dateTo?: string }> = ({ onEventClick, dateFrom, dateTo }) => {
-  const [filters, setFilters] = useState<FeedFilters>({ sort: 'asc' });
+  const [filters, setFilters] = useState<FilterState>({ sort: 'asc' });
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<Event[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   const loadPage = async (p: number, replace = false) => {
     setLoading(true);
@@ -45,8 +20,13 @@ const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void; dateFrom?: s
       const res = await eventsApi.getAll(p, PAGE_SIZE, filters);
       const paginated = res.data as any;
       const newItems: Event[] = Array.isArray(paginated.items) ? paginated.items : [];
-      setTotalPages(Number(paginated.total_pages) || 1);
+      const totalPages = Number(paginated.total_pages) || 1;
+      
+      setTotalPages(totalPages);
       setItems(replace ? newItems : [...items, ...newItems]);
+      setHasMore(p < totalPages);
+    } catch (error) {
+      console.error('Ошибка загрузки мероприятий:', error);
     } finally {
       setLoading(false);
     }
@@ -61,106 +41,106 @@ const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void; dateFrom?: s
   // reload on filters change
   useEffect(() => {
     setPage(1);
+    setItems([]);
     loadPage(1, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.date, filters.date_from, filters.date_to, filters.category, filters.sort]);
+  }, [filters.date, filters.date_from, filters.date_to, filters.category, filters.sort, filters.location]);
 
   const onLoadMore = () => {
-    if (page < totalPages) {
+    if (hasMore && !loading) {
       const next = page + 1;
       setPage(next);
       loadPage(next);
     }
   };
 
+  const handleFiltersChange = (newFilters: FilterState) => {
+    setFilters(newFilters);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({ sort: 'asc' });
+  };
+
   return (
     <section className="py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Filters */}
-        <div className="mb-6 bg-white/80 backdrop-blur rounded-xl p-4 border border-gray-200">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              {datePresets.map(preset => (
-                <button
-                  key={preset.key}
-                  onClick={() => setFilters(prev => ({ ...prev, date: preset.key }))}
-                  className={`px-3 py-2 rounded-lg text-sm border ${filters.date === preset.key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
-                >
-                  {preset.label}
-                </button>
-              ))}
-              <input
-                type="date"
-                onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value || undefined, date_from: undefined, date_to: undefined }))}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700"
-              />
-              {(filters.date_from || filters.date_to) && (
-                <button
-                  className="px-2 py-1 text-xs rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
-                  onClick={() => setFilters(prev => ({ ...prev, date_from: undefined, date_to: undefined }))}
-                >
-                  Сбросить диапазон
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2 ml-auto">
-              <select
-                value={filters.category || ''}
-                onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value || undefined }))}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700"
-              >
-                {categories.map(c => (
-                  <option key={c.key} value={c.key}>{c.label}</option>
-                ))}
-              </select>
-              <select
-                value={filters.sort || 'asc'}
-                onChange={(e) => setFilters(prev => ({ ...prev, sort: (e.target.value as 'asc'|'desc') }))}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700"
-              >
-                <option value="asc">Сначала ближайшие</option>
-                <option value="desc">Сначала дальние</option>
-              </select>
-            </div>
+        <EventFilters
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          onClearFilters={handleClearFilters}
+        />
+
+        {/* Results Count */}
+        {items.length > 0 && (
+          <div className="mb-6 text-sm text-gray-600">
+            Найдено мероприятий: <span className="font-medium">{items.length}</span>
+            {totalPages > 1 && (
+              <span className="ml-2">
+                (страница {page} из {totalPages})
+              </span>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {items.map(ev => (
-            <div
-              key={ev.id}
-              className="group rounded-xl overflow-hidden border border-gray-200 bg-white hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => onEventClick?.(ev)}
-            >
-              <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
-                {ev.image_url ? (
-                  <img src={ev.image_url} alt={ev.title} className="w-full h-full object-cover object-center group-hover:scale-[1.02] transition-transform" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">Нет изображения</div>
-                )}
-              </div>
-              <div className="p-4">
-                <div className="text-sm text-gray-500 mb-1">{ev.category || 'Другие'}</div>
-                <div className="font-semibold text-gray-900 mb-2 line-clamp-2">{ev.title}</div>
-                <div className="text-sm text-gray-700 flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary-600" />
-                  <span>{formatDateTime(ev.datetime)}</span>
-                </div>
-                <div className="text-sm text-gray-700 flex items-center gap-2 mt-1">
-                  <MapPin className="h-4 w-4 text-primary-600" />
-                  <span className="truncate" title={ev.location}>{ev.location}</span>
-                </div>
-              </div>
+        {/* Loading State */}
+        {loading && items.length === 0 && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            <span className="ml-2 text-gray-600">Загрузка мероприятий...</span>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && items.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <Calendar className="h-16 w-16 mx-auto" />
             </div>
-          ))}
-        </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Мероприятия не найдены</h3>
+            <p className="text-gray-600 mb-4">
+              Попробуйте изменить фильтры или выбрать другой период
+            </p>
+            <button
+              onClick={handleClearFilters}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Сбросить фильтры
+            </button>
+          </div>
+        )}
 
-        {/* Load More */}
-        {page < totalPages && (
+        {/* Events Grid */}
+        {items.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {items.map(event => (
+              <EventCard
+                key={event.id}
+                event={event}
+                onEventClick={onEventClick || (() => {})}
+                variant="default"
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Load More Button */}
+        {hasMore && items.length > 0 && (
           <div className="text-center mt-8">
-            <button disabled={loading} onClick={onLoadMore} className="btn-secondary px-6 py-3 text-base disabled:opacity-60">
-              {loading ? 'Загрузка...' : 'Показать ещё'}
+            <button
+              disabled={loading}
+              onClick={onLoadMore}
+              className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Загрузка...
+                </>
+              ) : (
+                'Показать ещё'
+              )}
             </button>
           </div>
         )}
