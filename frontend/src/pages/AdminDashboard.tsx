@@ -104,11 +104,17 @@ const AdminDashboard: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Ensure datetime is sent as full ISO string (with seconds) or undefined
+      const payload = {
+        ...formData,
+        datetime: formData.datetime ? new Date(formData.datetime).toISOString() : undefined,
+      } as any;
+
       if (editingEvent) {
-        await eventsApi.update(editingEvent.id, formData);
+        await eventsApi.update(editingEvent.id, payload);
         toast.success('Мероприятие обновлено');
       } else {
-        await eventsApi.create(formData);
+        await eventsApi.create(payload);
         toast.success('Мероприятие создано');
       }
       setShowModal(false);
