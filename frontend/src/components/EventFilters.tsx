@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, Filter, X, MapPin, Clock } from 'lucide-react';
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
-import { ru } from 'date-fns/locale';
 
 export interface FilterState {
   date?: string;

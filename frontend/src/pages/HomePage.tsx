@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Event } from '../services/api';
 import Header from '../components/Header';
 import Hero from '../components/Hero';
-import About from '../components/About';
 import EventsFeed from '../components/EventsFeed';
 import Contact from '../components/Contact';
 import EventModal from '../components/EventModal';
