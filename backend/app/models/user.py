@@ -9,6 +9,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
+    email = Column(String, nullable=True)
     is_admin = Column(Boolean, default=False)
     
     # Связь с мероприятиями (если нужно будет отслеживать кто создал)

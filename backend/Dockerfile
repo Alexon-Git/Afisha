@@ -15,6 +15,9 @@ COPY requirements.txt .
 # Установка Python зависимостей
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Установка дополнительных зависимостей для совместимости
+RUN pip install --no-cache-dir bcrypt==4.0.1 passlib[bcrypt]==1.7.4
+
 # Копирование исходного кода
 COPY . .
 

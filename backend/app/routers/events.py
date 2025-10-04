@@ -56,7 +56,9 @@ def read_events(
                 end = start.replace(hour=23, minute=59, second=59)
             if start and end:
                 query = query.filter(Event.datetime >= start, Event.datetime <= end)
-        except Exception:
+        except Exception as e:
+            # Логируем ошибку для отладки
+            print(f"⚠️  Предупреждение: ошибка парсинга даты {date_from}: {e}")
             pass
     elif date:
         now = datetime.now()
@@ -83,7 +85,9 @@ def read_events(
                 y, m, d = map(int, date.split("-"))
                 start = datetime(y, m, d, 0, 0, 0)
                 end = datetime(y, m, d, 23, 59, 59)
-            except Exception:
+            except Exception as e:
+                # Логируем ошибку для отладки
+                print(f"⚠️  Предупреждение: ошибка парсинга даты {date}: {e}")
                 pass
         if start and end:
             query = query.filter(Event.datetime >= start, Event.datetime <= end)

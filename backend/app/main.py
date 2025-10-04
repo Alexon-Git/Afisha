@@ -19,9 +19,10 @@ try:
         columns = {row[1] for row in res.fetchall()}
         if "category" not in columns:
             conn.exec_driver_sql("ALTER TABLE events ADD COLUMN category VARCHAR")
-except Exception:
-    # Тихо игнорируем, если база не SQLite или операция не поддерживается
-    pass
+            conn.commit()
+except Exception as e:
+    # Логируем ошибку для отладки, но не прерываем запуск
+    print(f"⚠️  Предупреждение: не удалось добавить колонку category: {e}")
 
 app = FastAPI(
     title="Афиша мероприятий",

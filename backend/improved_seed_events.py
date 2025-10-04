@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Скрипт для заполнения базы данных тестовыми мероприятиями
+Улучшенный скрипт для заполнения базы данных мероприятиями с автоматическим использованием изображений
 """
 
 import sys
@@ -19,21 +19,6 @@ from app.database import Base
 
 # Создаем таблицы если их нет
 Base.metadata.create_all(bind=engine)
-
-def get_available_images():
-    """Получает список доступных изображений"""
-    upload_dir = "app/static/uploads"
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir, exist_ok=True)
-    
-    # Ищем изображения в папке uploads
-    image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.webp', '*.gif']
-    images = []
-    for ext in image_extensions:
-        images.extend(glob.glob(os.path.join(upload_dir, ext)))
-        images.extend(glob.glob(os.path.join(upload_dir, ext.upper())))
-    
-    return [f"/static/uploads/{os.path.basename(img)}" for img in images]
 
 # Тестовые данные мероприятий
 EVENTS_DATA = [
@@ -59,75 +44,90 @@ EVENTS_DATA = [
         "title": "Джазовый вечер с Игорем Бутманом",
         "description": "Вечер джазовой музыки с участием саксофониста Игоря Бутмана и его коллектива. В программе - классический джаз и современные композиции.",
         "location": "Джаз-клуб 'JFC', Шпалерная ул., 33",
-        "category": "concert",
+        "category": "concert"
     },
     {
         "title": "Фестиваль уличного искусства 'Стенограффия'",
         "description": "Международный фестиваль уличного искусства с участием художников из разных стран. Мастер-классы, выставки и создание новых арт-объектов.",
         "location": "Новая Голландия, наб. Адмиралтейского канала, 2",
-        "category": "exhibition",
+        "category": "exhibition"
     },
     {
         "title": "Балет 'Лебединое озеро'",
         "description": "Классический балет П.И. Чайковского в постановке Мариинского театра. Одна из самых известных балетных постановок в мире.",
         "location": "Мариинский театр, Театральная пл., 1",
-        "category": "theatre",
+        "category": "theatre"
     },
     {
         "title": "Рок-фестиваль 'Нашествие'",
         "description": "Один из крупнейших рок-фестивалей России. В программе - выступления ведущих российских и зарубежных рок-групп.",
         "location": "Парк 'Сокольники', Москва",
-        "category": "concert",
+        "category": "concert"
     },
     {
         "title": "Выставка современного искусства 'Арт-Петербург'",
         "description": "Ежегодная выставка современного искусства с участием галерей и художников из России и зарубежья. Инсталляции, перформансы, видеоарт.",
         "location": "ЦВЗ 'Манеж', Исаакиевская пл., 1",
-        "category": "exhibition",
+        "category": "exhibition"
     },
     {
         "title": "Опера 'Пиковая дама'",
         "description": "Опера П.И. Чайковского по повести А.С. Пушкина. Постановка с использованием современных технологий и декораций.",
         "location": "Михайловский театр, пл. Искусств, 1",
-        "category": "theatre",
+        "category": "theatre"
     },
     {
         "title": "Концерт симфонического оркестра",
         "description": "Концерт Санкт-Петербургского филармонического оркестра. В программе - произведения Чайковского, Рахманинова и Шостаковича.",
         "location": "Филармония им. Д.Д. Шостаковича, Михайловская ул., 2",
-        "category": "concert",
+        "category": "concert"
     },
     {
         "title": "Фотовыставка 'Петербург глазами фотографов'",
         "description": "Коллективная выставка фотографов, работающих в жанре городской фотографии. Уникальные ракурсы и виды Санкт-Петербурга.",
         "location": "Русский музей, Инженерная ул., 4",
-        "category": "exhibition",
+        "category": "exhibition"
     },
     {
         "title": "Спектакль 'Гамлет'",
         "description": "Современная интерпретация трагедии Шекспира. Режиссерская работа с использованием мультимедиа и интерактивных элементов.",
         "location": "Театр им. Ленсовета, Владимирский пр., 12",
-        "category": "theatre",
+        "category": "theatre"
     },
     {
         "title": "Джаз-фестиваль 'Усадьба Джаз'",
         "description": "Международный джазовый фестиваль с участием звезд мирового джаза. Мастер-классы, джем-сейшены и концерты.",
         "location": "Парк 'Елагин остров'",
-        "category": "concert",
+        "category": "concert"
     },
     {
         "title": "Выставка 'Советский дизайн'",
         "description": "Ретроспективная выставка советского дизайна 1920-1980-х годов. Плакаты, мебель, посуда, одежда и другие артефакты эпохи.",
         "location": "Музей дизайна, наб. реки Фонтанки, 10",
-        "category": "exhibition",
+        "category": "exhibition"
     },
     {
         "title": "Мюзикл 'Кошки'",
         "description": "Знаменитый мюзикл Эндрю Ллойда Уэббера в постановке российского театра. Яркие костюмы, запоминающиеся мелодии и танцы.",
         "location": "Театр 'Мюзик-Холл', Александровский парк, 4",
-        "category": "theatre",
+        "category": "theatre"
     }
 ]
+
+def get_available_images():
+    """Получает список доступных изображений"""
+    upload_dir = "app/static/uploads"
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir, exist_ok=True)
+    
+    # Ищем изображения в папке uploads
+    image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.webp', '*.gif']
+    images = []
+    for ext in image_extensions:
+        images.extend(glob.glob(os.path.join(upload_dir, ext)))
+        images.extend(glob.glob(os.path.join(upload_dir, ext.upper())))
+    
+    return [f"/static/uploads/{os.path.basename(img)}" for img in images]
 
 def create_admin_user():
     """Создает администратора из ENV файла или по умолчанию"""

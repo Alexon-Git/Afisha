@@ -9,8 +9,16 @@ from ..database import get_db
 from ..models.user import User
 from ..schemas.user import TokenData
 from ..config import settings
+import hashlib
+import secrets
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Создаем контекст с fallback на pbkdf2_sha256 если bcrypt не работает
+pwd_context = CryptContext(
+    schemes=["bcrypt", "pbkdf2_sha256"], 
+    deprecated="auto",
+    bcrypt__rounds=12,
+    pbkdf2_sha256__rounds=290000
+)
 security = HTTPBearer()
 
 
@@ -19,7 +27,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    try:
+        # Ограничиваем длину пароля до 72 байт для совместимости с bcrypt
+        if len(password.encode('utf-8')) > 72:
+            password = password[:72]
+        return pwd_context.hash(password)
+    except Exception as e:
+        # Fallback на pbkdf2_sha256 если bcrypt не работает
+        print(f"⚠️  Ошибка bcrypt, используем pbkdf2_sha256: {e}")
+        return pwd_context.hash(password, scheme="pbkdf2_sha256")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
