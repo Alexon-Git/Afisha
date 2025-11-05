@@ -35,9 +35,7 @@ const AdminDashboard: React.FC = () => {
   const fetchEvents = async () => {
     try {
       const response = await eventsApi.getAll(1, 50);
-      const data = response.data as any;
-      const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
-      setEvents(items);
+      setEvents(response.data.items ?? []);
     } catch (error) {
       toast.error('Ошибка при загрузке мероприятий');
     } finally {
@@ -105,10 +103,10 @@ const AdminDashboard: React.FC = () => {
     e.preventDefault();
     try {
       // Ensure datetime is sent as full ISO string (with seconds) or undefined
-      const payload = {
+      const payload: EventCreate = {
         ...formData,
-        datetime: formData.datetime ? new Date(formData.datetime).toISOString() : undefined,
-      } as any;
+        datetime: new Date(formData.datetime).toISOString(),
+      };
 
       if (editingEvent) {
         await eventsApi.update(editingEvent.id, payload);

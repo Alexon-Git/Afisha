@@ -1,36 +1,54 @@
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from .database import engine, Base
-# Ensure all models are imported before metadata creation
-from .models import user as _user_model  # noqa: F401
-from .models import event as _event_model  # noqa: F401
-from .routers import auth, events
-from .config import settings
-import os
+import logging
+from pathlib import Path
 
-# Создаем таблицы в базе данных
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
+
+from .database import Base, engine
+from .models import event as _event_model  # noqa: F401
+from .models import user as _user_model  # noqa: F401
+from .routers import auth, events
+
+logger = logging.getLogger(__name__)
+
 Base.metadata.create_all(bind=engine)
 
-# Обновление схемы: добавить колонку category в таблицу events при отсутствии (SQLite)
-try:
-    with engine.connect() as conn:
-        res = conn.exec_driver_sql("PRAGMA table_info(events)")
-        columns = {row[1] for row in res.fetchall()}
-        if "category" not in columns:
-            conn.exec_driver_sql("ALTER TABLE events ADD COLUMN category VARCHAR")
-            conn.commit()
-except Exception as e:
-    # Логируем ошибку для отладки, но не прерываем запуск
-    print(f"⚠️  Предупреждение: не удалось добавить колонку category: {e}")
+
+def _ensure_column(engine, table_name: str, column_name: str, column_definition: str) -> None:
+    """Ensure that a column exists on the given table, creating it if needed."""
+
+    inspector = inspect(engine)
+    try:
+        existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning("Could not inspect table %s: %s", table_name, exc)
+        return
+
+    if column_name in existing_columns:
+        return
+
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}")
+            )
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning(
+            "Could not ensure column %s.%s exists: %s", table_name, column_name, exc
+        )
+
+
+_ensure_column(engine, "events", "category", "category VARCHAR")
+_ensure_column(engine, "users", "email", "email VARCHAR")
 
 app = FastAPI(
     title="Афиша мероприятий",
     description="API для управления мероприятиями",
-    version="1.0.0"
+    version="1.0.0",
 )
 
-# Настройка CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -44,10 +62,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключаем статические файлы
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
 
-# Подключаем роутеры
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
 app.include_router(auth.router)
 app.include_router(events.router)
 

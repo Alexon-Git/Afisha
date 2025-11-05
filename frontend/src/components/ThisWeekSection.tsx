@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Event } from '../services/api';
 import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { format } from 'date-fns';
