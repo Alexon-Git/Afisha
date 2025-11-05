@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, MapPin, Plus, User, Menu } from 'lucide-react';
+import { Search, MapPin } from 'lucide-react';
 
 const Header: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');

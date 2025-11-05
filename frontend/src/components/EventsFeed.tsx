@@ -17,14 +17,15 @@ const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void; dateFrom?: s
   const loadPage = async (p: number, replace = false) => {
     setLoading(true);
     try {
-      const res = await eventsApi.getAll(p, PAGE_SIZE, filters);
-      const paginated = res.data as any;
-      const newItems: Event[] = Array.isArray(paginated.items) ? paginated.items : [];
-      const totalPages = Number(paginated.total_pages) || 1;
-      
-      setTotalPages(totalPages);
-      setItems(replace ? newItems : [...items, ...newItems]);
-      setHasMore(p < totalPages);
+      const { location, ...apiFilters } = filters;
+      const response = await eventsApi.getAll(p, PAGE_SIZE, apiFilters);
+      const paginated = response.data;
+      const newItems = Array.isArray(paginated.items) ? paginated.items : [];
+      const nextTotalPages = paginated.total_pages || (newItems.length > 0 ? 1 : 0);
+
+      setTotalPages(nextTotalPages || 1);
+      setItems(prev => (replace ? newItems : [...prev, ...newItems]));
+      setHasMore(p < nextTotalPages);
     } catch (error) {
       console.error('Ошибка загрузки мероприятий:', error);
     } finally {
