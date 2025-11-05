@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
 
 from .database import Base, engine
 from .models import event as _event_model  # noqa: F401
@@ -14,15 +15,33 @@ logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
-try:
-    with engine.connect() as conn:
-        res = conn.exec_driver_sql("PRAGMA table_info(events)")
-        columns = {row[1] for row in res.fetchall()}
-        if "category" not in columns:
-            conn.exec_driver_sql("ALTER TABLE events ADD COLUMN category VARCHAR")
-            conn.commit()
-except Exception as exc:  # pylint: disable=broad-except
-    logger.warning("Could not ensure category column exists: %s", exc)
+
+def _ensure_column(engine, table_name: str, column_name: str, column_definition: str) -> None:
+    """Ensure that a column exists on the given table, creating it if needed."""
+
+    inspector = inspect(engine)
+    try:
+        existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning("Could not inspect table %s: %s", table_name, exc)
+        return
+
+    if column_name in existing_columns:
+        return
+
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}")
+            )
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning(
+            "Could not ensure column %s.%s exists: %s", table_name, column_name, exc
+        )
+
+
+_ensure_column(engine, "events", "category", "category VARCHAR")
+_ensure_column(engine, "users", "email", "email VARCHAR")
 
 app = FastAPI(
     title="Афиша мероприятий",
