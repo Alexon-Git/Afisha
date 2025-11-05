@@ -32,19 +32,19 @@ const HomePage: React.FC = () => {
     try {
       // Загружаем события на эту неделю
       const thisWeekResponse = await eventsApi.getAll(1, 5);
-      setThisWeekEvents(thisWeekResponse.data.items || []);
+      setThisWeekEvents(thisWeekResponse.data.items ?? []);
 
       // Загружаем концерты
       const concertResponse = await eventsApi.getAll(1, 6, { category: 'concert' });
-      setConcertEvents(concertResponse.data.items || []);
+      setConcertEvents(concertResponse.data.items ?? []);
 
       // Загружаем театральные события
       const theatreResponse = await eventsApi.getAll(1, 6, { category: 'theatre' });
-      setTheatreEvents(theatreResponse.data.items || []);
+      setTheatreEvents(theatreResponse.data.items ?? []);
 
       // Загружаем выставки
       const exhibitionResponse = await eventsApi.getAll(1, 6, { category: 'exhibition' });
-      setExhibitionEvents(exhibitionResponse.data.items || []);
+      setExhibitionEvents(exhibitionResponse.data.items ?? []);
     } catch (error) {
       console.error('Ошибка загрузки событий:', error);
     } finally {

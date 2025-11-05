@@ -52,7 +52,6 @@ const EventFilters: React.FC<EventFiltersProps> = ({
   const sortOptions = [
     { key: 'asc', label: 'Сначала ближайшие' },
     { key: 'desc', label: 'Сначала дальние' },
-    { key: 'popular', label: 'По популярности' },
   ];
 
   const handleDatePreset = (preset: string) => {
