@@ -1,7 +1,7 @@
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
-from typing import List
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict
 
 
 class EventBase(BaseModel):
@@ -30,8 +30,7 @@ class Event(EventBase):
     id: int
     creator_id: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaginatedEvents(BaseModel):

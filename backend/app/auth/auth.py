@@ -1,23 +1,26 @@
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+
+from ..config import settings
 from ..database import get_db
 from ..models.user import User
 from ..schemas.user import TokenData
-from ..config import settings
-import hashlib
-import secrets
+from ..services.user_service import UserService
 
-# Создаем контекст с fallback на pbkdf2_sha256 если bcrypt не работает
+logger = logging.getLogger(__name__)
+
 pwd_context = CryptContext(
-    schemes=["bcrypt", "pbkdf2_sha256"], 
+    schemes=["bcrypt", "pbkdf2_sha256"],
     deprecated="auto",
     bcrypt__rounds=12,
-    pbkdf2_sha256__rounds=290000
+    pbkdf2_sha256__rounds=290000,
 )
 security = HTTPBearer()
 
@@ -28,29 +31,25 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     try:
-        # Ограничиваем длину пароля до 72 байт для совместимости с bcrypt
-        if len(password.encode('utf-8')) > 72:
+        if len(password.encode("utf-8")) > 72:
+            logger.debug("Truncating password to 72 bytes for bcrypt compatibility")
             password = password[:72]
         return pwd_context.hash(password)
-    except Exception as e:
-        # Fallback на pbkdf2_sha256 если bcrypt не работает
-        print(f"⚠️  Ошибка bcrypt, используем pbkdf2_sha256: {e}")
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning("bcrypt hashing failed, falling back to pbkdf2_sha256: %s", exc)
         return pwd_context.hash(password, scheme="pbkdf2_sha256")
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
-    return encoded_jwt
+    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
 def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
-    user = db.query(User).filter(User.username == username).first()
+    user_service = UserService(db)
+    user = user_service.get_by_username(username)
     if not user:
         return None
     if not verify_password(password, user.password_hash):
@@ -60,7 +59,7 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -69,13 +68,16 @@ async def get_current_user(
     )
     try:
         payload = jwt.decode(credentials.credentials, settings.secret_key, algorithms=[settings.algorithm])
-        username: str = payload.get("sub")
+        username: Optional[str] = payload.get("sub")
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
-    except JWTError:
-        raise credentials_exception
-    user = db.query(User).filter(User.username == token_data.username).first()
+    except JWTError as exc:
+        logger.info("JWT decoding failed: %s", exc)
+        raise credentials_exception from exc
+
+    user_service = UserService(db)
+    user = user_service.get_by_username(token_data.username)
     if user is None:
         raise credentials_exception
     return user
@@ -85,6 +87,6 @@ async def get_current_admin_user(current_user: User = Depends(get_current_user))
     if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
+            detail="Not enough permissions",
         )
     return current_user
