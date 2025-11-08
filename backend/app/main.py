@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from .database import Base, engine
 from .models import event as _event_model  # noqa: F401
@@ -28,6 +29,8 @@ app = FastAPI(
     description="API для управления мероприятиями",
     version="1.0.0",
 )
+
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 app.add_middleware(
     CORSMiddleware,

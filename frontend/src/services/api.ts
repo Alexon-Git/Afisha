@@ -107,7 +107,7 @@ export const eventsApi = {
       Object.entries({ page, limit, ...params }).filter(([, value]) => value !== undefined && value !== '')
     ) as Record<string, string | number>;
 
-    return api.get<PaginatedEventsResponse>(`/events`, { params: queryParams });
+    return api.get<PaginatedEventsResponse>(`/events/`, { params: queryParams });
   },
   getById: (id: number) => api.get<Event>(`/events/${id}`),
   create: (data: EventCreate) => api.post<Event>('/events/', data),
