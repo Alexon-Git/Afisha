@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from .category import Category
+
 
 class EventBase(BaseModel):
     title: str
@@ -10,7 +12,7 @@ class EventBase(BaseModel):
     datetime: datetime
     location: str
     image_url: Optional[str] = None
-    category: Optional[str] = None
+    category_id: Optional[int] = None
 
 
 class EventCreate(EventBase):
@@ -23,12 +25,13 @@ class EventUpdate(BaseModel):
     datetime: Optional[datetime] = None
     location: Optional[str] = None
     image_url: Optional[str] = None
-    category: Optional[str] = None
+    category_id: Optional[int] = None
 
 
 class Event(EventBase):
     id: int
     creator_id: Optional[int] = None
+    category: Optional[Category] = None
 
     model_config = ConfigDict(from_attributes=True)
 

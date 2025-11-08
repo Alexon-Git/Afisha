@@ -24,9 +24,14 @@ const YandexAdBanner: React.FC<YandexAdBannerProps> = ({ className = '' }) => {
             <div className="text-sm font-medium">Специальное предложение</div>
             <div className="text-xs opacity-75">Узнать больше</div>
           </div>
-          <div className="w-16 h-6 bg-white bg-opacity-20 rounded flex items-center justify-center">
-            <span className="text-xs font-medium">КУПИТЬ</span>
-          </div>
+          <a
+            href="https://t.me/MDmitry777"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-20 h-8 bg-white bg-opacity-20 hover:bg-opacity-30 rounded flex items-center justify-center text-xs font-medium transition-colors"
+          >
+            КУПИТЬ
+          </a>
         </div>
       </div>
       

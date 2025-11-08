@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { eventsApi, Event } from '../services/api';
+import { categoriesApi, Category, Event, eventsApi } from '../services/api';
 import EventCard from './EventCard';
 import EventFilters, { FilterState } from './EventFilters';
 import { Loader2, Calendar } from 'lucide-react';
@@ -13,6 +13,8 @@ const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void; dateFrom?: s
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   const loadPage = async (p: number, replace = false) => {
     setLoading(true);
@@ -47,6 +49,22 @@ const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void; dateFrom?: s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.date, filters.date_from, filters.date_to, filters.category, filters.sort, filters.location]);
 
+  useEffect(() => {
+    const loadCategories = async () => {
+      setCategoriesLoading(true);
+      try {
+        const response = await categoriesApi.getAll();
+        setCategories(response.data ?? []);
+      } catch (error) {
+        console.error('Ошибка загрузки категорий:', error);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    loadCategories();
+  }, []);
+
   const onLoadMore = () => {
     if (hasMore && !loading) {
       const next = page + 1;
@@ -69,6 +87,8 @@ const EventsFeed: React.FC<{ onEventClick?: (event: Event) => void; dateFrom?: s
         {/* Filters */}
         <EventFilters
           filters={filters}
+          categories={categories}
+          categoriesLoading={categoriesLoading}
           onFiltersChange={handleFiltersChange}
           onClearFilters={handleClearFilters}
         />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Event, eventsApi } from '../services/api';
+import { Category, Event, categoriesApi, eventsApi } from '../services/api';
 import Header from '../components/Header';
 import ThisWeekSection from '../components/ThisWeekSection';
 import CategorySection from '../components/CategorySection';
@@ -19,9 +19,7 @@ const HomePage: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [thisWeekEvents, setThisWeekEvents] = useState<Event[]>([]);
-  const [concertEvents, setConcertEvents] = useState<Event[]>([]);
-  const [theatreEvents, setTheatreEvents] = useState<Event[]>([]);
-  const [exhibitionEvents, setExhibitionEvents] = useState<Event[]>([]);
+  const [categorySections, setCategorySections] = useState<{ category: Category; events: Event[] }[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
   const city = 'Новосибирск';
@@ -30,23 +28,30 @@ const HomePage: React.FC = () => {
   const loadEvents = async () => {
     setLoading(true);
     try {
-      // Загружаем события на эту неделю
-      const thisWeekResponse = await eventsApi.getAll(1, 5);
+      const [thisWeekResponse, categoriesResponse] = await Promise.all([
+        eventsApi.getAll(1, 5),
+        categoriesApi.getAll(),
+      ]);
+
       setThisWeekEvents(thisWeekResponse.data.items ?? []);
 
-      // Загружаем концерты
-      const concertResponse = await eventsApi.getAll(1, 6, { category: 'concert' });
-      setConcertEvents(concertResponse.data.items ?? []);
+      const activeCategories = (categoriesResponse.data ?? []).filter(category => category.is_active);
+      const highlightedCategories = activeCategories.slice(0, 3);
 
-      // Загружаем театральные события
-      const theatreResponse = await eventsApi.getAll(1, 6, { category: 'theatre' });
-      setTheatreEvents(theatreResponse.data.items ?? []);
+      const sections = await Promise.all(
+        highlightedCategories.map(async (category) => {
+          const response = await eventsApi.getAll(1, 6, { category: category.slug });
+          return {
+            category,
+            events: response.data.items ?? [],
+          };
+        })
+      );
 
-      // Загружаем выставки
-      const exhibitionResponse = await eventsApi.getAll(1, 6, { category: 'exhibition' });
-      setExhibitionEvents(exhibitionResponse.data.items ?? []);
+      setCategorySections(sections);
     } catch (error) {
       console.error('Ошибка загрузки событий:', error);
+      setCategorySections([]);
     } finally {
       setLoading(false);
     }
@@ -133,26 +138,15 @@ const HomePage: React.FC = () => {
         />
 
         {/* Секции по категориям */}
-        <CategorySection 
-          title="Концерты"
-          events={concertEvents}
-          onEventClick={handleEventClick}
-          loading={loading}
-        />
-
-        <CategorySection 
-          title="Театр"
-          events={theatreEvents}
-          onEventClick={handleEventClick}
-          loading={loading}
-        />
-
-        <CategorySection 
-          title="Выставки"
-          events={exhibitionEvents}
-          onEventClick={handleEventClick}
-          loading={loading}
-        />
+        {categorySections.map(({ category, events }) => (
+          <CategorySection
+            key={category.id}
+            title={category.name}
+            events={events}
+            onEventClick={handleEventClick}
+            loading={loading}
+          />
+        ))}
 
         {/* Дополнительные фильтры (показываются по кнопке) */}
         {showFilters && (
