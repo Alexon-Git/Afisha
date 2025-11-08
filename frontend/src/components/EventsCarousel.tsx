@@ -62,22 +62,34 @@ const EventsCarousel: React.FC<EventsCarouselProps> = ({
           className="flex transition-transform duration-500 ease-in-out"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
         >
-          {events.map((event, index) => (
-            <div key={event.id} className="w-full flex-shrink-0">
-              <div 
-                className="relative h-80 bg-cover bg-center rounded-2xl cursor-pointer group"
-                style={{
-                  backgroundImage: event.image_url 
-                    ? `url(${event.image_url})`
-                    : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                }}
-                onClick={() => onEventClick(event)}
-              >
-                {/* Fallback изображение если основное не загрузилось */}
-                {event.image_url && (
-                  <img 
-                    src={event.image_url} 
-                    alt={event.title}
+          {events.map((event, index) => {
+            const hasRating = typeof event.rating === 'number' && !Number.isNaN(event.rating);
+            const ratingValue = hasRating ? event.rating!.toFixed(1) : '—';
+            const hasDiscount = typeof event.discount === 'number' && !Number.isNaN(event.discount);
+            const discountLabel = hasDiscount ? `до ${Math.round(event.discount ?? 0)}%` : null;
+            const hasPrice = typeof event.price === 'number' && !Number.isNaN(event.price);
+            const priceLabel = hasPrice
+              ? event.price === 0
+                ? 'Бесплатно'
+                : `от ${new Intl.NumberFormat('ru-RU').format(event.price ?? 0)} ₽`
+              : 'Цена по запросу';
+
+            return (
+              <div key={event.id} className="w-full flex-shrink-0">
+                <div
+                  className="relative h-80 bg-cover bg-center rounded-2xl cursor-pointer group"
+                  style={{
+                    backgroundImage: event.image_url
+                      ? `url(${event.image_url})`
+                      : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                  }}
+                  onClick={() => onEventClick(event)}
+                >
+                  {/* Fallback изображение если основное не загрузилось */}
+                  {event.image_url && (
+                    <img
+                      src={event.image_url}
+                      alt={event.title}
                     className="absolute inset-0 w-full h-full object-cover rounded-2xl opacity-0"
                     onError={(e) => {
                       // Если изображение не загрузилось, показываем градиент
@@ -88,43 +100,46 @@ const EventsCarousel: React.FC<EventsCarouselProps> = ({
                 {/* Overlay для лучшей читаемости текста */}
                 <div className="absolute inset-0 bg-black bg-opacity-40 rounded-2xl"></div>
                 
-                {/* Контент баннера */}
-                <div className="relative h-full flex flex-col justify-between p-6 text-white">
-                  {/* Верхняя часть - категория и рейтинг */}
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center space-x-2">
-                      <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                        8.2
-                      </div>
-                      <span className="text-sm font-medium">
-                        {event.category?.name ?? 'Мероприятие'} • 18+
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Нижняя часть - название и детали */}
-                  <div className="space-y-2">
-                    <h3 className="text-2xl font-bold line-clamp-2">
-                      {event.title}
-                    </h3>
-                    <p className="text-sm opacity-90">
-                      {event.location} • {format(new Date(event.datetime), 'd MMMM', { locale: ru })}
-                    </p>
-                    <div className="flex justify-between items-center">
+                  {/* Контент баннера */}
+                  <div className="relative h-full flex flex-col justify-between p-6 text-white">
+                    {/* Верхняя часть - категория и рейтинг */}
+                    <div className="flex justify-between items-start">
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs bg-purple-500 px-2 py-1 rounded">
-                          до 15%
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${hasRating ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
+                          {ratingValue}
+                        </div>
+                        <span className="text-sm font-medium">
+                          {event.category?.name ?? 'Мероприятие'} • 18+
                         </span>
                       </div>
-                      <div className="bg-yellow-400 text-gray-900 px-3 py-1 rounded-full text-sm font-medium">
-                        от 1700 ₽
+                    </div>
+
+                  {/* Нижняя часть - название и детали */}
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-bold line-clamp-2">
+                        {event.title}
+                      </h3>
+                      <p className="text-sm opacity-90">
+                        {event.location} • {format(new Date(event.datetime), 'd MMMM', { locale: ru })}
+                      </p>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-2">
+                          {discountLabel && (
+                            <span className="text-xs bg-purple-500 px-2 py-1 rounded">
+                              {discountLabel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="bg-yellow-400 text-gray-900 px-3 py-1 rounded-full text-sm font-medium">
+                          {priceLabel}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Кнопки навигации */}
