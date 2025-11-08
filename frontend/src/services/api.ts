@@ -43,6 +43,19 @@ export interface Category {
   is_active: boolean;
 }
 
+export const normalizeCategoryList = (data: unknown): Category[] => {
+  if (Array.isArray(data)) {
+    return data as Category[];
+  }
+  if (data && typeof data === 'object') {
+    const items = (data as { items?: unknown }).items;
+    if (Array.isArray(items)) {
+      return items as Category[];
+    }
+  }
+  return [];
+};
+
 export interface Event {
   id: number;
   title: string;
@@ -145,8 +158,15 @@ export interface CategoryUpdatePayload {
 }
 
 export const categoriesApi = {
-  getAll: (includeInactive = false) =>
-    api.get<Category[]>(`/categories/`, { params: { include_inactive: includeInactive } }),
+  getAll: async (includeInactive = false) => {
+    const response = await api.get<unknown>(`/categories/`, {
+      params: { include_inactive: includeInactive },
+    });
+    return {
+      ...response,
+      data: normalizeCategoryList(response.data),
+    } as typeof response & { data: Category[] };
+  },
   create: (data: CategoryCreatePayload) => api.post<Category>('/categories/', data),
   update: (id: number, data: CategoryUpdatePayload) => api.put<Category>(`/categories/${id}`, data),
   delete: (id: number) => api.delete(`/categories/${id}`),
