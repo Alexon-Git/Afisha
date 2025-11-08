@@ -19,3 +19,15 @@ class InvalidImageError(ServiceError):
 
 class InvalidDateFilterError(ServiceError):
     """Raised when provided date filters cannot be parsed."""
+
+
+class CategoryError(ServiceError):
+    """Base class for category related errors."""
+
+
+class CategoryNotFoundError(CategoryError):
+    """Raised when the requested category does not exist."""
+
+
+class CategoryAlreadyExistsError(CategoryError):
+    """Raised when creating or renaming a category conflicts with an existing one."""

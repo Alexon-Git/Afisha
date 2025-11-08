@@ -97,10 +97,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                     {/* Категория */}
                     <div className="absolute bottom-2 left-2">
                       <span className="bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs font-medium">
-                        {event.category === 'concert' ? 'Концерт' : 
-                         event.category === 'theatre' ? 'Театр' : 
-                         event.category === 'exhibition' ? 'Выставка' : 
-                         'Мероприятие'} • 18+
+                        {event.category?.name ?? 'Мероприятие'} • 18+
                       </span>
                     </div>
                   </div>

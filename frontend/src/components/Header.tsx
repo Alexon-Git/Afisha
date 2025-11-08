@@ -1,20 +1,44 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, MapPin } from 'lucide-react';
+
+import { categoriesApi, Category } from '../services/api';
 
 const Header: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
 
-  const categories = [
-    'Сертификаты',
-    'Кино', 
+  useEffect(() => {
+    const loadCategories = async () => {
+      setLoadingCategories(true);
+      try {
+        const response = await categoriesApi.getAll();
+        setCategories(response.data ?? []);
+      } catch (error) {
+        console.error('Ошибка загрузки категорий для хэдера:', error);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+  const fallbackCategories = [
+    'События',
     'Концерты',
     'Театр',
     'Детям',
     'Выставки',
     'Спорт',
     'Стендап',
-    'Ещё'
   ];
+
+  const displayedCategories = categories
+    .filter(category => category.is_active)
+    .map(category => category.name);
+
+  const navigationCategories = displayedCategories.length > 0 ? displayedCategories : fallbackCategories;
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -65,7 +89,7 @@ const Header: React.FC = () => {
       <div className="border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex items-center space-x-8 py-3 overflow-x-auto scrollbar-hide">
-            {categories.map((category) => (
+            {navigationCategories.map((category) => (
               <button
                 key={category}
                 className="flex-shrink-0 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors whitespace-nowrap"
@@ -73,6 +97,9 @@ const Header: React.FC = () => {
                 {category}
               </button>
             ))}
+            {loadingCategories && (
+              <span className="text-sm text-gray-400">Загрузка...</span>
+            )}
           </nav>
         </div>
       </div>
