@@ -1,37 +1,9 @@
 import axios from 'axios';
 
-const isBrowser = typeof window !== 'undefined';
-const isCRADev = isBrowser && window.location && window.location.hostname === 'localhost' && window.location.port === '3000';
-// Radical rule: on CRA dev (localhost:3000) ALWAYS use relative URLs → proxy handles 8039
-const resolveBaseUrl = (): string => {
-  if (isCRADev) {
-    return '';
-  }
-
-  if (!isBrowser) {
-    return process.env.REACT_APP_API_URL || 'http://localhost:8039';
-  }
-
-  const envUrl = process.env.REACT_APP_API_URL?.trim();
-  if (envUrl && envUrl !== '') {
-    try {
-      const resolved = new URL(envUrl, window.location.origin);
-      if (window.location.protocol === 'https:' && resolved.protocol === 'http:') {
-        resolved.protocol = 'https:';
-      }
-      return resolved.toString().replace(/\/$/, '');
-    } catch (error) {
-      console.warn('Invalid REACT_APP_API_URL:', envUrl, error);
-    }
-  }
-
-  return window.location.origin;
-};
-
-const API_BASE_URL = resolveBaseUrl();
+import { PRODUCTION_API_ORIGIN } from '../config/api';
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: PRODUCTION_API_ORIGIN,
 });
 
 // Интерцептор для добавления токена авторизации
