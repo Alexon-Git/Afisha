@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Calendar, Filter, X, MapPin, Clock } from 'lucide-react';
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
+
+import { Category } from '../services/api';
 
 export interface FilterState {
   date?: string;
@@ -13,14 +15,18 @@ export interface FilterState {
 
 interface EventFiltersProps {
   filters: FilterState;
+  categories: Category[];
+  categoriesLoading?: boolean;
   onFiltersChange: (filters: FilterState) => void;
   onClearFilters: () => void;
 }
 
-const EventFilters: React.FC<EventFiltersProps> = ({ 
-  filters, 
-  onFiltersChange, 
-  onClearFilters 
+const EventFilters: React.FC<EventFiltersProps> = ({
+  filters,
+  categories,
+  categoriesLoading = false,
+  onFiltersChange,
+  onClearFilters
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -31,15 +37,15 @@ const EventFilters: React.FC<EventFiltersProps> = ({
     { key: 'week', label: 'Эта неделя', icon: '📊' },
   ];
 
-  const categories = [
-    { key: '', label: 'Все категории', icon: '🎭' },
-    { key: 'concert', label: 'Концерты', icon: '🎵' },
-    { key: 'theatre', label: 'Театр', icon: '🎭' },
-    { key: 'exhibition', label: 'Выставки', icon: '🖼️' },
-    { key: 'sport', label: 'Спорт', icon: '⚽' },
-    { key: 'education', label: 'Образование', icon: '📚' },
-    { key: 'business', label: 'Бизнес', icon: '💼' },
-  ];
+  const categoryOptions = useMemo(
+    () => [
+      { slug: '', label: 'Все категории' },
+      ...categories
+        .filter(category => category.is_active)
+        .map(category => ({ slug: category.slug, label: category.name })),
+    ],
+    [categories]
+  );
 
   const locations = [
     { key: '', label: 'Все места' },
@@ -153,10 +159,11 @@ const EventFilters: React.FC<EventFiltersProps> = ({
             value={filters.category || ''}
             onChange={(e) => onFiltersChange({ ...filters, category: e.target.value || undefined })}
             className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            disabled={categoriesLoading}
           >
-            {categories.map(cat => (
-              <option key={cat.key} value={cat.key}>
-                {cat.icon} {cat.label}
+            {categoryOptions.map(cat => (
+              <option key={cat.slug} value={cat.slug}>
+                {cat.label}
               </option>
             ))}
           </select>
@@ -247,7 +254,7 @@ const EventFilters: React.FC<EventFiltersProps> = ({
             )}
             {filters.category && (
               <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
-                {categories.find(c => c.key === filters.category)?.label}
+                {categoryOptions.find(c => c.slug === filters.category)?.label || filters.category}
               </span>
             )}
             {filters.location && (

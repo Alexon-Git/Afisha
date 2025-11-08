@@ -109,10 +109,7 @@ const ThisWeekSection: React.FC<ThisWeekSectionProps> = ({
                             8.2
                           </div>
                           <span className="text-sm font-medium bg-black bg-opacity-50 px-3 py-1 rounded-full">
-                            {event.category === 'concert' ? 'Концерт' : 
-                             event.category === 'theatre' ? 'Театр' : 
-                             event.category === 'exhibition' ? 'Выставка' : 
-                             'Мероприятие'} • 18+
+                            {event.category?.name ?? 'Мероприятие'} • 18+
                           </span>
                         </div>
                       </div>

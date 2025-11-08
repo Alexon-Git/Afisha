@@ -1,35 +1,63 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { eventsApi, Event, EventCreate } from '../services/api';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  LogOut, 
-  Calendar, 
-  
+import {
+  categoriesApi,
+  Category,
+  CategoryCreatePayload,
+  CategoryUpdatePayload,
+  Event,
+  EventCreate,
+  eventsApi,
+} from '../services/api';
+import {
+  Plus,
+  Edit,
+  Trash2,
+  LogOut,
+  Calendar,
+  Tag,
+  Loader2,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminDashboard: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState<EventCreate>({
     title: '',
     description: '',
     datetime: '',
     location: '',
     image_url: '',
-    category: ''
+    category_id: null
   });
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [categoryFormData, setCategoryFormData] = useState<CategoryCreatePayload>({
+    name: '',
+    slug: '',
+    is_active: true
+  });
+  const [categorySaving, setCategorySaving] = useState(false);
   const navigate = useNavigate();
+
+  const slugify = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
 
   useEffect(() => {
     fetchEvents();
+    fetchCategories();
   }, []);
 
   const fetchEvents = async () => {
@@ -40,6 +68,18 @@ const AdminDashboard: React.FC = () => {
       toast.error('Ошибка при загрузке мероприятий');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    setCategoriesLoading(true);
+    try {
+      const response = await categoriesApi.getAll(true);
+      setCategories(response.data ?? []);
+    } catch (error) {
+      toast.error('Ошибка при загрузке категорий');
+    } finally {
+      setCategoriesLoading(false);
     }
   };
 
@@ -56,7 +96,7 @@ const AdminDashboard: React.FC = () => {
       datetime: '',
       location: '',
       image_url: '',
-      category: ''
+      category_id: null
     });
     setShowModal(true);
   };
@@ -69,7 +109,7 @@ const AdminDashboard: React.FC = () => {
       datetime: new Date(event.datetime).toISOString().slice(0, 16),
       location: event.location,
       image_url: event.image_url || '',
-      category: event.category || ''
+      category_id: event.category?.id ?? null
     });
     setShowModal(true);
   };
@@ -105,6 +145,7 @@ const AdminDashboard: React.FC = () => {
       // Ensure datetime is sent as full ISO string (with seconds) or undefined
       const payload: EventCreate = {
         ...formData,
+        category_id: formData.category_id ?? null,
         datetime: new Date(formData.datetime).toISOString(),
       };
 
@@ -119,6 +160,92 @@ const AdminDashboard: React.FC = () => {
       fetchEvents();
     } catch (error) {
       toast.error('Ошибка при сохранении мероприятия');
+    }
+  };
+
+  const resetCategoryForm = () => {
+    setCategoryFormData({ name: '', slug: '', is_active: true });
+    setEditingCategory(null);
+  };
+
+  const handleCreateCategory = () => {
+    resetCategoryForm();
+    setShowCategoryModal(true);
+  };
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategory(category);
+    setCategoryFormData({
+      name: category.name,
+      slug: category.slug,
+      is_active: category.is_active,
+    });
+    setShowCategoryModal(true);
+  };
+
+  const handleDeleteCategory = async (id: number) => {
+    if (!window.confirm('Вы уверены, что хотите удалить эту категорию?')) {
+      return;
+    }
+    try {
+      await categoriesApi.delete(id);
+      toast.success('Категория удалена');
+      fetchCategories();
+      fetchEvents();
+    } catch (error) {
+      toast.error('Ошибка при удалении категории');
+    }
+  };
+
+  const handleCategoryNameChange = (value: string) => {
+    setCategoryFormData(prev => {
+      const next = { ...prev, name: value } as CategoryCreatePayload;
+      const shouldUpdateSlug =
+        !editingCategory ||
+        !prev.slug ||
+        slugify(prev.slug || '') === slugify(prev.name || '');
+      if (shouldUpdateSlug) {
+        next.slug = slugify(value);
+      }
+      return next;
+    });
+  };
+
+  const handleCategorySlugChange = (value: string) => {
+    setCategoryFormData(prev => ({ ...prev, slug: slugify(value) }));
+  };
+
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = categoryFormData.name?.trim() ?? '';
+    if (!trimmedName) {
+      toast.error('Введите название категории');
+      return;
+    }
+
+    const payloadBase = {
+      name: trimmedName,
+      slug: categoryFormData.slug ? slugify(categoryFormData.slug) : undefined,
+      is_active: categoryFormData.is_active,
+    } satisfies CategoryCreatePayload & CategoryUpdatePayload;
+
+    setCategorySaving(true);
+    try {
+      if (editingCategory) {
+        await categoriesApi.update(editingCategory.id, payloadBase);
+        toast.success('Категория обновлена');
+      } else {
+        await categoriesApi.create(payloadBase);
+        toast.success('Категория создана');
+      }
+      setShowCategoryModal(false);
+      resetCategoryForm();
+      fetchCategories();
+      fetchEvents();
+    } catch (error) {
+      toast.error('Ошибка при сохранении категории');
+    } finally {
+      setCategorySaving(false);
     }
   };
 
@@ -198,6 +325,9 @@ const AdminDashboard: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Место
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Категория
+                    </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Действия
                     </th>
@@ -233,6 +363,9 @@ const AdminDashboard: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {event.location}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {event.category?.name ?? '—'}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
                           <button
@@ -255,6 +388,98 @@ const AdminDashboard: React.FC = () => {
               </table>
             </div>
           )}
+        </div>
+
+        {/* Categories management */}
+        <div className="mt-16">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Категории</h2>
+            <button
+              onClick={handleCreateCategory}
+              className="btn-primary flex items-center space-x-2"
+            >
+              <Tag className="h-5 w-5" />
+              <span>Добавить категорию</span>
+            </button>
+          </div>
+
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+            {categoriesLoading ? (
+              <div className="flex items-center justify-center py-12 space-x-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary-600" />
+                <span className="text-sm text-gray-600">Загрузка категорий...</span>
+              </div>
+            ) : categories.length === 0 ? (
+              <div className="text-center py-12">
+                <Tag className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Категории не созданы</h3>
+                <p className="text-gray-500 mb-4">Добавьте первую категорию, чтобы организовать мероприятия</p>
+                <button onClick={handleCreateCategory} className="btn-primary">
+                  Добавить категорию
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Название
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Слаг
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Статус
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Действия
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {categories.map(category => (
+                      <tr key={category.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {category.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {category.slug}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              category.is_active
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {category.is_active ? 'Активна' : 'Скрыта'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={() => handleEditCategory(category)}
+                              className="text-primary-600 hover:text-primary-900"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCategory(category.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
@@ -337,15 +562,30 @@ const AdminDashboard: React.FC = () => {
                     Категория
                   </label>
                   <select
-                    value={formData.category}
-                    onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                    value={formData.category_id ?? ''}
+                    onChange={(e) =>
+                      setFormData(prev => ({
+                        ...prev,
+                        category_id: e.target.value ? Number(e.target.value) : null,
+                      }))
+                    }
                     className="input-field"
+                    disabled={categoriesLoading}
                   >
                     <option value="">Не указано</option>
-                    <option value="concert">Концерт</option>
-                    <option value="theatre">Театр</option>
-                    <option value="exhibition">Выставка</option>
+                    {categories
+                      .filter(category => category.is_active)
+                      .map(category => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
                   </select>
+                  {!categoriesLoading && categories.filter(category => category.is_active).length === 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Активных категорий пока нет. Добавьте их в разделе «Категории» ниже.
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -400,6 +640,96 @@ const AdminDashboard: React.FC = () => {
                     className="flex-1 btn-primary"
                   >
                     {editingEvent ? 'Обновить' : 'Создать'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {editingCategory ? 'Редактировать категорию' : 'Создать категорию'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowCategoryModal(false);
+                    resetCategoryForm();
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCategorySubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Название *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={categoryFormData.name}
+                    onChange={(e) => handleCategoryNameChange(e.target.value)}
+                    className="input-field"
+                    placeholder="Например, Концерты"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Слаг
+                  </label>
+                  <input
+                    type="text"
+                    value={categoryFormData.slug || ''}
+                    onChange={(e) => handleCategorySlugChange(e.target.value)}
+                    className="input-field"
+                    placeholder="konce-rty"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Используется в адресной строке и фильтрах. Допустимы латинские буквы, цифры и дефис.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Категория активна</p>
+                    <p className="text-xs text-gray-500">Неактивные категории не отображаются на сайте</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={categoryFormData.is_active !== false}
+                    onChange={(e) =>
+                      setCategoryFormData(prev => ({ ...prev, is_active: e.target.checked }))
+                    }
+                    className="h-5 w-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  />
+                </div>
+
+                <div className="flex space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCategoryModal(false);
+                      resetCategoryForm();
+                    }}
+                    className="flex-1 btn-secondary"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 btn-primary"
+                    disabled={categorySaving}
+                  >
+                    {categorySaving ? 'Сохранение...' : 'Сохранить'}
                   </button>
                 </div>
               </form>

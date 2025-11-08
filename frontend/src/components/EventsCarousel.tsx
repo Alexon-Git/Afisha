@@ -97,7 +97,7 @@ const EventsCarousel: React.FC<EventsCarouselProps> = ({
                         8.2
                       </div>
                       <span className="text-sm font-medium">
-                        {event.category || 'Мероприятие'} • 18+
+                        {event.category?.name ?? 'Мероприятие'} • 18+
                       </span>
                     </div>
                   </div>

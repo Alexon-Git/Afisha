@@ -29,21 +29,15 @@ const EventCard: React.FC<EventCardProps> = ({
   const isToday = new Date(event.datetime).toDateString() === new Date().toDateString();
   const isTomorrow = new Date(event.datetime).toDateString() === new Date(Date.now() + 86400000).toDateString();
 
-  const getCategoryColor = (category?: string) => {
-    switch (category) {
+  const categorySlug = event.category?.slug;
+  const categoryName = event.category?.name ?? 'Мероприятие';
+
+  const getCategoryColor = (slug?: string) => {
+    switch (slug) {
       case 'concert': return 'bg-purple-100 text-purple-800';
       case 'theatre': return 'bg-blue-100 text-blue-800';
       case 'exhibition': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getCategoryLabel = (category?: string) => {
-    switch (category) {
-      case 'concert': return 'Концерт';
-      case 'theatre': return 'Театр';
-      case 'exhibition': return 'Выставка';
-      default: return 'Мероприятие';
     }
   };
 
@@ -103,8 +97,8 @@ const EventCard: React.FC<EventCardProps> = ({
             </div>
           )}
           <div className="absolute top-3 left-3">
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(event.category)}`}>
-              {getCategoryLabel(event.category)}
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(categorySlug)}`}>
+              {categoryName}
             </span>
           </div>
           <div className="absolute top-3 right-3 flex gap-2">
@@ -172,8 +166,8 @@ const EventCard: React.FC<EventCardProps> = ({
           </div>
         )}
         <div className="absolute top-2 left-2">
-          <span className={`px-2 py-1 rounded text-xs font-medium ${getCategoryColor(event.category)}`}>
-            {getCategoryLabel(event.category)}
+          <span className={`px-2 py-1 rounded text-xs font-medium ${getCategoryColor(categorySlug)}`}>
+            {categoryName}
           </span>
         </div>
         {(isToday || isTomorrow) && (

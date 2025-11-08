@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
+
 from ..database import Base
 
 
@@ -12,8 +13,9 @@ class Event(Base):
     datetime = Column(DateTime, nullable=False, index=True)
     location = Column(String, nullable=False)
     image_url = Column(String, nullable=True)
-    category = Column(String, nullable=True, index=True)
+    category_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True)
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    
-    # Связь с пользователем
+
+    # Связи
     creator = relationship("User", back_populates="events")
+    category = relationship("Category", back_populates="events")

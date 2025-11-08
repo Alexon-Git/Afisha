@@ -12,8 +12,9 @@ from typing import Dict, Optional, Tuple
 
 from fastapi import UploadFile
 from sqlalchemy import asc, desc, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
+from ..models.category import Category
 from ..models.event import Event
 from ..schemas.event import EventCreate, EventUpdate
 from .exceptions import EventNotFoundError, InvalidDateFilterError, InvalidImageError
@@ -50,7 +51,18 @@ class EventService:
 
         filters = []
         if category:
-            filters.append(Event.category == category)
+            category_obj = self._session.scalar(
+                select(Category).where(Category.slug == category, Category.is_active.is_(True))
+            )
+            if not category_obj:
+                return {
+                    "items": [],
+                    "page": page,
+                    "limit": limit,
+                    "total_items": 0,
+                    "total_pages": 0,
+                }
+            filters.append(Event.category_id == category_obj.id)
 
         try:
             start, end = self._resolve_date_filters(date=date, date_from=date_from, date_to=date_to)
@@ -67,6 +79,7 @@ class EventService:
 
         items_stmt = (
             select(Event)
+            .options(joinedload(Event.category))
             .where(*filters)
             .order_by(order_expression)
             .offset((page - 1) * limit)
@@ -89,7 +102,8 @@ class EventService:
         }
 
     def get_event(self, event_id: int) -> Event:
-        event = self._session.get(Event, event_id)
+        stmt = select(Event).options(joinedload(Event.category)).where(Event.id == event_id)
+        event = self._session.scalar(stmt)
         if event is None:
             raise EventNotFoundError(f"Event with id={event_id} does not exist")
         return event
@@ -99,6 +113,8 @@ class EventService:
         self._session.add(db_event)
         self._session.commit()
         self._session.refresh(db_event)
+        if db_event.category_id:
+            _ = db_event.category
         return db_event
 
     def update_event(self, event_id: int, event_update: EventUpdate) -> Event:
@@ -112,6 +128,8 @@ class EventService:
 
         self._session.commit()
         self._session.refresh(db_event)
+        if db_event.category_id:
+            _ = db_event.category
         return db_event
 
     def delete_event(self, event_id: int) -> None:

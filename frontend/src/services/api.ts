@@ -36,6 +36,13 @@ api.interceptors.response.use(
   }
 );
 
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  is_active: boolean;
+}
+
 export interface Event {
   id: number;
   title: string;
@@ -43,7 +50,8 @@ export interface Event {
   datetime: string;
   location: string;
   image_url?: string;
-  category?: string;
+  category_id?: number | null;
+  category?: Category | null;
   creator_id?: number;
 }
 
@@ -69,7 +77,7 @@ export interface EventCreate {
   datetime: string;
   location: string;
   image_url?: string;
-  category?: string;
+  category_id?: number | null;
 }
 
 export interface EventUpdate {
@@ -78,7 +86,7 @@ export interface EventUpdate {
   datetime?: string;
   location?: string;
   image_url?: string;
-  category?: string;
+  category_id?: number | null;
 }
 
 export interface User {
@@ -122,6 +130,26 @@ export const eventsApi = {
       },
     });
   },
+};
+
+export interface CategoryCreatePayload {
+  name: string;
+  slug?: string;
+  is_active?: boolean;
+}
+
+export interface CategoryUpdatePayload {
+  name?: string;
+  slug?: string;
+  is_active?: boolean;
+}
+
+export const categoriesApi = {
+  getAll: (includeInactive = false) =>
+    api.get<Category[]>(`/categories/`, { params: { include_inactive: includeInactive } }),
+  create: (data: CategoryCreatePayload) => api.post<Category>('/categories/', data),
+  update: (id: number, data: CategoryUpdatePayload) => api.put<Category>(`/categories/${id}`, data),
+  delete: (id: number) => api.delete(`/categories/${id}`),
 };
 
 export const authApi = {
