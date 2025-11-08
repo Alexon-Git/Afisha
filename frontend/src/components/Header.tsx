@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Search, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 
 import { categoriesApi, Category } from '../services/api';
 
 const Header: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
 
@@ -55,20 +54,6 @@ const Header: React.FC = () => {
             </div>
           </div>
 
-          {/* Поиск */}
-          <div className="flex-1 max-w-2xl mx-8">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="События, артисты и места"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
           {/* Правая панель */}
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-gray-600">
@@ -88,7 +73,7 @@ const Header: React.FC = () => {
       {/* Навигационное меню */}
       <div className="border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex items-center space-x-8 py-3 overflow-x-auto scrollbar-hide">
+          <nav className="flex items-center justify-center gap-6 py-3 overflow-x-auto scrollbar-hide">
             {navigationCategories.map((category) => (
               <button
                 key={category}

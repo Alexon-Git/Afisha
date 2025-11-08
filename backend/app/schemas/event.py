@@ -13,6 +13,10 @@ class EventBase(BaseModel):
     location: str
     image_url: Optional[str] = None
     category_id: Optional[int] = None
+    price: Optional[int] = None
+    rating: Optional[float] = None
+    discount: Optional[int] = None
+    payment_url: Optional[str] = None
 
 
 class EventCreate(EventBase):
@@ -26,6 +30,10 @@ class EventUpdate(BaseModel):
     location: Optional[str] = None
     image_url: Optional[str] = None
     category_id: Optional[int] = None
+    price: Optional[int] = None
+    rating: Optional[float] = None
+    discount: Optional[int] = None
+    payment_url: Optional[str] = None
 
 
 class Event(EventBase):

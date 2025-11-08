@@ -30,14 +30,19 @@ const AdminDashboard: React.FC = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [formData, setFormData] = useState<EventCreate>({
+  const createEmptyEventForm = (): EventCreate => ({
     title: '',
     description: '',
     datetime: '',
     location: '',
     image_url: '',
-    category_id: null
+    category_id: null,
+    price: null,
+    rating: null,
+    discount: null,
+    payment_url: null,
   });
+  const [formData, setFormData] = useState<EventCreate>(createEmptyEventForm());
   const [uploadingImage, setUploadingImage] = useState(false);
   const [categoryFormData, setCategoryFormData] = useState<CategoryCreatePayload>({
     name: '',
@@ -90,14 +95,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleCreateEvent = () => {
     setEditingEvent(null);
-    setFormData({
-      title: '',
-      description: '',
-      datetime: '',
-      location: '',
-      image_url: '',
-      category_id: null
-    });
+    setFormData(createEmptyEventForm());
     setShowModal(true);
   };
 
@@ -109,7 +107,11 @@ const AdminDashboard: React.FC = () => {
       datetime: new Date(event.datetime).toISOString().slice(0, 16),
       location: event.location,
       image_url: event.image_url || '',
-      category_id: event.category?.id ?? null
+      category_id: event.category?.id ?? null,
+      price: event.price ?? null,
+      rating: event.rating ?? null,
+      discount: event.discount ?? null,
+      payment_url: event.payment_url ?? null,
     });
     setShowModal(true);
   };
@@ -142,11 +144,30 @@ const AdminDashboard: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Ensure datetime is sent as full ISO string (with seconds) or undefined
+      const normalizeNumber = (value: number | null | undefined) =>
+        value !== null && value !== undefined && !Number.isNaN(value) ? value : null;
+
+      const normalizedPrice = normalizeNumber(formData.price);
+      const normalizedRating = normalizeNumber(formData.rating);
+      const normalizedDiscount = normalizeNumber(formData.discount);
+
       const payload: EventCreate = {
-        ...formData,
-        category_id: formData.category_id ?? null,
+        title: formData.title,
+        description: formData.description,
         datetime: new Date(formData.datetime).toISOString(),
+        location: formData.location,
+        image_url: formData.image_url || undefined,
+        category_id: formData.category_id ?? null,
+        price: normalizedPrice !== null ? Math.max(0, normalizedPrice) : null,
+        rating:
+          normalizedRating !== null
+            ? Math.round(Math.min(10, Math.max(0, normalizedRating)) * 10) / 10
+            : null,
+        discount:
+          normalizedDiscount !== null
+            ? Math.round(Math.min(100, Math.max(0, normalizedDiscount)))
+            : null,
+        payment_url: formData.payment_url ? formData.payment_url.trim() || null : null,
       };
 
       if (editingEvent) {
@@ -249,10 +270,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const formatDateTime = (datetime: string) => {
-    return new Date(datetime).toLocaleString('ru-RU');
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -287,111 +304,9 @@ const AdminDashboard: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Actions */}
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Мероприятия</h2>
-          <button
-            onClick={handleCreateEvent}
-            className="btn-primary flex items-center space-x-2"
-          >
-            <Plus className="h-5 w-5" />
-            <span>Добавить мероприятие</span>
-          </button>
-        </div>
-
-        {/* Events List */}
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-          {events.length === 0 ? (
-            <div className="text-center py-12">
-              <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Нет мероприятий</h3>
-              <p className="text-gray-500 mb-4">Создайте первое мероприятие</p>
-              <button onClick={handleCreateEvent} className="btn-primary">
-                Добавить мероприятие
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Мероприятие
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Дата и время
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Место
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Категория
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Действия
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {events.map((event) => (
-                    <tr key={event.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {event.image_url && (
-                            <img
-                              className="h-12 w-12 rounded-lg object-cover mr-4"
-                              src={event.image_url}
-                              alt={event.title}
-                            />
-                          )}
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {event.title}
-                            </div>
-                            {event.description && (
-                              <div className="text-sm text-gray-500 truncate max-w-xs">
-                                {event.description}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDateTime(event.datetime)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {event.location}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {event.category?.name ?? '—'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => handleEditEvent(event)}
-                            className="text-primary-600 hover:text-primary-900"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteEvent(event.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
         {/* Categories management */}
-        <div className="mt-16">
+        <section>
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900">Категории</h2>
             <button
@@ -480,7 +395,104 @@ const AdminDashboard: React.FC = () => {
               </div>
             )}
           </div>
-        </div>
+        </section>
+
+        {/* Events */}
+        <section>
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900">Мероприятия</h2>
+            <button
+              onClick={handleCreateEvent}
+              className="btn-primary flex items-center space-x-2"
+            >
+              <Plus className="h-5 w-5" />
+              <span>Добавить мероприятие</span>
+            </button>
+          </div>
+
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+            {events.length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Нет мероприятий</h3>
+                <p className="text-gray-500 mb-4">Создайте первое мероприятие</p>
+                <button onClick={handleCreateEvent} className="btn-primary">
+                  Добавить мероприятие
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full table-fixed divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 w-2/5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Мероприятие
+                      </th>
+                      <th className="px-6 py-3 w-1/4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Место
+                      </th>
+                      <th className="px-6 py-3 w-1/4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Категория
+                      </th>
+                      <th className="px-6 py-3 w-1/6 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Действия
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {events.map((event) => (
+                      <tr key={event.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {event.image_url && (
+                              <img
+                                className="h-12 w-12 rounded-lg object-cover mr-4"
+                                src={event.image_url}
+                                alt={event.title}
+                              />
+                            )}
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {event.title}
+                              </div>
+                              {event.description && (
+                                <div className="text-sm text-gray-500 truncate max-w-xs">
+                                  {event.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 truncate">
+                          {event.location}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 truncate">
+                          {event.category?.name ?? '—'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={() => handleEditEvent(event)}
+                              className="text-primary-600 hover:text-primary-900"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteEvent(event.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
       </main>
 
       {/* Modal */}
@@ -586,6 +598,91 @@ const AdminDashboard: React.FC = () => {
                       Активных категорий пока нет. Добавьте их в разделе «Категории» ниже.
                     </p>
                   )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Стоимость (₽)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={formData.price ?? ''}
+                      onChange={(e) =>
+                        setFormData(prev => ({
+                          ...prev,
+                          price: e.target.value === '' ? null : Math.max(0, Number(e.target.value)),
+                        }))
+                      }
+                      className="input-field"
+                      placeholder="Например, 1500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Рейтинг
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      step="0.1"
+                      value={formData.rating ?? ''}
+                      onChange={(e) =>
+                        setFormData(prev => ({
+                          ...prev,
+                          rating: e.target.value === '' ? null : Math.min(10, Math.max(0, Number(e.target.value))),
+                        }))
+                      }
+                      className="input-field"
+                      placeholder="Например, 8.5"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Скидка (%)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="1"
+                      value={formData.discount ?? ''}
+                      onChange={(e) =>
+                        setFormData(prev => ({
+                          ...prev,
+                          discount: e.target.value === '' ? null : Math.min(100, Math.max(0, Number(e.target.value))),
+                        }))
+                      }
+                      className="input-field"
+                      placeholder="Например, 15"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ссылка на оплату
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.payment_url ?? ''}
+                    onChange={(e) =>
+                      setFormData(prev => ({
+                        ...prev,
+                        payment_url: e.target.value ? e.target.value : null,
+                      }))
+                    }
+                    className="input-field"
+                    placeholder="https://..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Укажите ссылку, по которой можно оплатить участие в мероприятии.
+                  </p>
                 </div>
 
                 <div>

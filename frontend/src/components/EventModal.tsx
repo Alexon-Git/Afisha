@@ -24,6 +24,17 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose }) => {
   };
 
   const { date, time } = formatDateTime(event.datetime);
+  const hasPrice = typeof event.price === 'number' && !Number.isNaN(event.price);
+  const hasRating = typeof event.rating === 'number' && !Number.isNaN(event.rating);
+  const hasDiscount = typeof event.discount === 'number' && !Number.isNaN(event.discount);
+  const priceLabel = hasPrice
+    ? event.price === 0
+      ? 'Бесплатно'
+      : `${new Intl.NumberFormat('ru-RU').format(event.price ?? 0)} ₽`
+    : '—';
+  const ratingLabel = hasRating ? event.rating!.toFixed(1) : '—';
+  const discountLabel = hasDiscount ? `${Math.round(event.discount ?? 0)}%` : '—';
+  const paymentUrl = event.payment_url && event.payment_url.trim() ? event.payment_url.trim() : null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -70,7 +81,25 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose }) => {
               <span>{event.location}</span>
             </div>
           </div>
-          
+
+          {/* Основные показатели */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Стоимость</p>
+              <p className="text-lg font-semibold text-gray-900 mt-1">{priceLabel}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Рейтинг</p>
+              <p className="text-lg font-semibold text-gray-900 mt-1">{ratingLabel}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Скидка</p>
+              <p className="text-lg font-semibold text-gray-900 mt-1">
+                {hasDiscount ? `−${discountLabel}` : discountLabel}
+              </p>
+            </div>
+          </div>
+
           {/* Описание */}
           {event.description && (
             <div className="mb-6">
@@ -89,15 +118,26 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose }) => {
             >
               Закрыть
             </button>
-            <button
-              onClick={() => {
-                // Здесь можно добавить функциональность "Добавить в календарь"
-                console.log('Добавить в календарь');
-              }}
-              className="flex-1 btn-secondary"
-            >
-              Добавить в календарь
-            </button>
+            {paymentUrl ? (
+              <a
+                href={paymentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 btn-secondary text-center"
+              >
+                Оплатить участие
+              </a>
+            ) : (
+              <button
+                onClick={() => {
+                  // Здесь можно добавить функциональность "Добавить в календарь"
+                  console.log('Добавить в календарь');
+                }}
+                className="flex-1 btn-secondary"
+              >
+                Добавить в календарь
+              </button>
+            )}
           </div>
         </div>
       </div>

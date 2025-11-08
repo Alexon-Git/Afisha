@@ -74,6 +74,16 @@ const EventsList: React.FC<EventsListProps> = ({ onEventClick }) => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {itemsToShow.map((ev) => {
                     const { date, time } = formatDateTime(ev.datetime);
+                    const hasPrice = typeof ev.price === 'number' && !Number.isNaN(ev.price);
+                    const hasRating = typeof ev.rating === 'number' && !Number.isNaN(ev.rating);
+                    const hasDiscount = typeof ev.discount === 'number' && !Number.isNaN(ev.discount);
+                    const priceLabel = hasPrice
+                      ? ev.price === 0
+                        ? 'Бесплатно'
+                        : `${new Intl.NumberFormat('ru-RU').format(ev.price ?? 0)} ₽`
+                      : null;
+                    const ratingLabel = hasRating ? ev.rating!.toFixed(1) : null;
+                    const discountLabel = hasDiscount ? `−${Math.round(ev.discount ?? 0)}%` : null;
                     return (
                       <tr key={ev.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -85,6 +95,23 @@ const EventsList: React.FC<EventsListProps> = ({ onEventClick }) => {
                               <div className="text-sm font-medium text-gray-900">{ev.title}</div>
                               {ev.description && (
                                 <div className="text-sm text-gray-500 truncate max-w-xs">{ev.description}</div>
+                              )}
+                              {(priceLabel || ratingLabel || discountLabel) && (
+                                <div className="flex items-center gap-2 mt-2 text-xs">
+                                  {priceLabel && (
+                                    <span className="font-semibold text-gray-900">{priceLabel}</span>
+                                  )}
+                                  {ratingLabel && (
+                                    <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">
+                                      {ratingLabel}
+                                    </span>
+                                  )}
+                                  {discountLabel && (
+                                    <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
+                                      {discountLabel}
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>
