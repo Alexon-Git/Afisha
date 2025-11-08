@@ -25,7 +25,8 @@ class ColumnRequirement:
 def _quoted(identifier: str) -> str:
     """Return an SQL identifier quoted for safe interpolation."""
 
-    return f'"{identifier.replace("\"", "\"\"")}"'
+    escaped = identifier.replace('"', '""')
+    return f'"{escaped}"'
 
 
 def ensure_column(
