@@ -22,6 +22,10 @@ schema_utils.ensure_columns(
     (
         schema_utils.ColumnRequirement("events", "category_id", "INTEGER"),
         schema_utils.ColumnRequirement("users", "email", "VARCHAR"),
+        schema_utils.ColumnRequirement("events", "price", "INTEGER"),
+        schema_utils.ColumnRequirement("events", "rating", "DOUBLE PRECISION"),
+        schema_utils.ColumnRequirement("events", "discount", "INTEGER"),
+        schema_utils.ColumnRequirement("events", "payment_url", "VARCHAR"),
     ),
 )
 
