@@ -203,7 +203,12 @@ def seed_events():
             days_offset = random.randint(0, 90)
             hours_offset = random.randint(0, 23)
             event_date = base_date + timedelta(days=days_offset, hours=hours_offset)
-            
+
+            price = random.randint(500, 5000)
+            rating = round(random.uniform(7.0, 9.8), 1)
+            discount = random.choice([None, random.randint(5, 30)])
+            payment_url = f"https://pay.afisha.local/event/{i + 1}"
+
             # Выбираем случайное изображение или None
             image_url = None
             if available_images and i < len(available_images):
@@ -218,7 +223,11 @@ def seed_events():
                 location=event_data["location"],
                 image_url=image_url,
                 category=event_data["category"],
-                creator_id=admin.id
+                creator_id=admin.id,
+                price=price,
+                rating=rating,
+                discount=discount,
+                payment_url=payment_url,
             )
             
             db.add(event)

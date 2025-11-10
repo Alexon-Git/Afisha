@@ -66,6 +66,10 @@ export interface Event {
   category_id?: number | null;
   category?: Category | null;
   creator_id?: number;
+  price?: number | null;
+  rating?: number | null;
+  discount?: number | null;
+  payment_url?: string | null;
 }
 
 export interface PaginatedEventsResponse {
@@ -91,6 +95,10 @@ export interface EventCreate {
   location: string;
   image_url?: string;
   category_id?: number | null;
+  price?: number | null;
+  rating?: number | null;
+  discount?: number | null;
+  payment_url?: string | null;
 }
 
 export interface EventUpdate {
@@ -100,6 +108,10 @@ export interface EventUpdate {
   location?: string;
   image_url?: string;
   category_id?: number | null;
+  price?: number | null;
+  rating?: number | null;
+  discount?: number | null;
+  payment_url?: string | null;
 }
 
 export interface User {

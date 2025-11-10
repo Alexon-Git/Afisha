@@ -1,6 +1,6 @@
 import React from 'react';
 import { Event } from '../services/api';
-import { Calendar, MapPin, Clock, Heart, Share2 } from 'lucide-react';
+import { Calendar, MapPin, Clock, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -31,6 +31,18 @@ const EventCard: React.FC<EventCardProps> = ({
 
   const categorySlug = event.category?.slug;
   const categoryName = event.category?.name ?? 'Мероприятие';
+
+  const hasPrice = typeof event.price === 'number' && !Number.isNaN(event.price);
+  const hasRating = typeof event.rating === 'number' && !Number.isNaN(event.rating);
+  const hasDiscount = typeof event.discount === 'number' && !Number.isNaN(event.discount);
+
+  const priceLabel = hasPrice
+    ? event.price === 0
+      ? 'Бесплатно'
+      : `${new Intl.NumberFormat('ru-RU').format(event.price ?? 0)} ₽`
+    : null;
+  const ratingLabel = hasRating ? event.rating?.toFixed(1) : null;
+  const discountLabel = hasDiscount ? `${Math.round(event.discount ?? 0)}%` : null;
 
   const getCategoryColor = (slug?: string) => {
     switch (slug) {
@@ -102,16 +114,7 @@ const EventCard: React.FC<EventCardProps> = ({
             </span>
           </div>
           <div className="absolute top-3 right-3 flex gap-2">
-            <button 
-              className="p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                // TODO: Add to favorites
-              }}
-            >
-              <Heart className="h-4 w-4 text-gray-600" />
-            </button>
-            <button 
+            <button
               className="p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
@@ -141,6 +144,23 @@ const EventCard: React.FC<EventCardProps> = ({
               <MapPin className="h-4 w-4 mr-2 text-red-500" />
               <span className="truncate">{event.location}</span>
             </div>
+            {(ratingLabel || discountLabel || priceLabel) && (
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                  {ratingLabel && (
+                    <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">
+                      {ratingLabel}
+                    </span>
+                  )}
+                  {discountLabel && (
+                    <span className="text-xs font-medium text-purple-700 bg-purple-100 px-2 py-1 rounded-full">
+                      −{discountLabel}
+                    </span>
+                  )}
+                </div>
+                {priceLabel && <span className="text-sm font-semibold text-gray-900">{priceLabel}</span>}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -204,16 +224,20 @@ const EventCard: React.FC<EventCardProps> = ({
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <button 
-              className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                // TODO: Add to favorites
-              }}
-            >
-              <Heart className="h-4 w-4 text-gray-400 hover:text-red-500" />
-            </button>
-            <button 
+            {ratingLabel && (
+              <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">
+                {ratingLabel}
+              </span>
+            )}
+            {discountLabel && (
+              <span className="text-xs font-medium text-purple-700 bg-purple-100 px-2 py-1 rounded-full">
+                −{discountLabel}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {priceLabel && <span className="text-sm font-semibold text-gray-900">{priceLabel}</span>}
+            <button
               className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
