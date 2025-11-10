@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime as dt_datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -9,7 +9,7 @@ from .category import Category
 class EventBase(BaseModel):
     title: str
     description: Optional[str] = None
-    datetime: datetime
+    datetime: dt_datetime
     location: str
     image_url: Optional[str] = None
     category_id: Optional[int] = None
@@ -26,7 +26,7 @@ class EventCreate(EventBase):
 class EventUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    datetime: Optional[datetime] = None
+    datetime: Optional[dt_datetime] = None
     location: Optional[str] = None
     image_url: Optional[str] = None
     category_id: Optional[int] = None

@@ -77,7 +77,7 @@ const ThisWeekSection: React.FC<ThisWeekSectionProps> = ({
             >
               {events.map((event) => {
                 const hasRating = typeof event.rating === 'number' && !Number.isNaN(event.rating);
-                const ratingValue = hasRating ? event.rating!.toFixed(1) : '—';
+                const ratingLabel = hasRating ? event.rating!.toFixed(1) : null;
                 const hasDiscount = typeof event.discount === 'number' && !Number.isNaN(event.discount);
                 const discountLabel = hasDiscount ? `до ${Math.round(event.discount ?? 0)}%` : null;
                 const hasPrice = typeof event.price === 'number' && !Number.isNaN(event.price);
@@ -85,7 +85,7 @@ const ThisWeekSection: React.FC<ThisWeekSectionProps> = ({
                   ? event.price === 0
                     ? 'Бесплатно'
                     : `от ${new Intl.NumberFormat('ru-RU').format(event.price ?? 0)} ₽`
-                  : 'Цена по запросу';
+                  : null;
 
                 return (
                   <div key={event.id} className="w-full flex-shrink-0">
@@ -105,10 +105,12 @@ const ThisWeekSection: React.FC<ThisWeekSectionProps> = ({
                       <div className="relative h-full flex flex-col justify-between p-8 text-white">
                         {/* Верхняя часть - категория и рейтинг */}
                         <div className="flex justify-between items-start">
-                          <div className="flex items-center space-x-3">
-                            <div className={`px-3 py-1 rounded-full text-sm font-medium ${hasRating ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                              {ratingValue}
-                            </div>
+                          <div className="flex items-center gap-3">
+                            {ratingLabel && (
+                              <div className="px-3 py-1 rounded-full text-sm font-medium bg-green-500 text-white">
+                                {ratingLabel}
+                              </div>
+                            )}
                             <span className="text-sm font-medium bg-black bg-opacity-50 px-3 py-1 rounded-full">
                               {event.category?.name ?? 'Мероприятие'}
                             </span>
@@ -131,9 +133,11 @@ const ThisWeekSection: React.FC<ThisWeekSectionProps> = ({
                                 </span>
                               )}
                             </div>
-                            <div className="bg-yellow-400 text-gray-900 px-4 py-2 rounded-full text-lg font-medium">
-                              {priceLabel}
-                            </div>
+                            {priceLabel && (
+                              <div className="bg-yellow-400 text-gray-900 px-4 py-2 rounded-full text-lg font-medium">
+                                {priceLabel}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

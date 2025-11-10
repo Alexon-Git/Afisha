@@ -3,7 +3,6 @@ import { Category, Event, categoriesApi, eventsApi } from '../services/api';
 import Header from '../components/Header';
 import ThisWeekSection from '../components/ThisWeekSection';
 import CategorySection from '../components/CategorySection';
-import EventsFeed from '../components/EventsFeed';
 import Contact from '../components/Contact';
 import EventModal from '../components/EventModal';
 import Footer from '../components/Footer';
@@ -11,7 +10,6 @@ import DateScroller from '../components/DateScroller';
 import YandexAdBanner from '../components/YandexAdBanner';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Filter } from 'lucide-react';
 
 const HomePage: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -20,7 +18,6 @@ const HomePage: React.FC = () => {
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [thisWeekEvents, setThisWeekEvents] = useState<Event[]>([]);
   const [categorySections, setCategorySections] = useState<{ category: Category; events: Event[] }[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
   const city = 'Новосибирск';
 
@@ -72,10 +69,6 @@ const HomePage: React.FC = () => {
     setSelectedEvent(null);
   };
 
-  const toggleFilters = () => {
-    setShowFilters(!showFilters);
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -116,16 +109,6 @@ const HomePage: React.FC = () => {
                 totalDays={90}
               />
               
-              {/* Кнопка для показа дополнительных фильтров */}
-              <div className="mt-6 text-center">
-                <button
-                  onClick={toggleFilters}
-                  className="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200"
-                >
-                  <Filter className="w-4 h-4" />
-                  <span>Дополнительные фильтры</span>
-                </button>
-              </div>
             </div>
           </div>
         </section>
@@ -147,32 +130,6 @@ const HomePage: React.FC = () => {
             loading={loading}
           />
         ))}
-
-        {/* Дополнительные фильтры (показываются по кнопке) */}
-        {showFilters && (
-          <section className="py-8 bg-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 sm:p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900">
-                    Дополнительные фильтры
-                  </h3>
-                  <button
-                    onClick={toggleFilters}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <EventsFeed
-                  onEventClick={handleEventClick}
-                  dateFrom={startDate ? format(startDate, 'yyyy-MM-dd') : undefined}
-                  dateTo={startDate && endDate ? format(endDate, 'yyyy-MM-dd') : undefined}
-                />
-              </div>
-            </div>
-          </section>
-        )}
 
         <Contact />
       </main>
