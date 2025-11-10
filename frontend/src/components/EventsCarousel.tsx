@@ -62,9 +62,9 @@ const EventsCarousel: React.FC<EventsCarouselProps> = ({
           className="flex transition-transform duration-500 ease-in-out"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
         >
-          {events.map((event, index) => {
+          {events.map((event) => {
             const hasRating = typeof event.rating === 'number' && !Number.isNaN(event.rating);
-            const ratingValue = hasRating ? event.rating!.toFixed(1) : '—';
+            const ratingLabel = hasRating ? event.rating!.toFixed(1) : null;
             const hasDiscount = typeof event.discount === 'number' && !Number.isNaN(event.discount);
             const discountLabel = hasDiscount ? `до ${Math.round(event.discount ?? 0)}%` : null;
             const hasPrice = typeof event.price === 'number' && !Number.isNaN(event.price);
@@ -72,7 +72,7 @@ const EventsCarousel: React.FC<EventsCarouselProps> = ({
               ? event.price === 0
                 ? 'Бесплатно'
                 : `от ${new Intl.NumberFormat('ru-RU').format(event.price ?? 0)} ₽`
-              : 'Цена по запросу';
+              : null;
 
             return (
               <div key={event.id} className="w-full flex-shrink-0">
@@ -104,10 +104,12 @@ const EventsCarousel: React.FC<EventsCarouselProps> = ({
                   <div className="relative h-full flex flex-col justify-between p-6 text-white">
                     {/* Верхняя часть - категория и рейтинг */}
                     <div className="flex justify-between items-start">
-                      <div className="flex items-center space-x-2">
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${hasRating ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                          {ratingValue}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        {ratingLabel && (
+                          <div className="px-2 py-1 rounded-full text-xs font-medium bg-green-500 text-white">
+                            {ratingLabel}
+                          </div>
+                        )}
                         <span className="text-sm font-medium">
                           {event.category?.name ?? 'Мероприятие'} • 18+
                         </span>
@@ -130,9 +132,11 @@ const EventsCarousel: React.FC<EventsCarouselProps> = ({
                             </span>
                           )}
                         </div>
-                        <div className="bg-yellow-400 text-gray-900 px-3 py-1 rounded-full text-sm font-medium">
-                          {priceLabel}
-                        </div>
+                        {priceLabel && (
+                          <div className="bg-yellow-400 text-gray-900 px-3 py-1 rounded-full text-sm font-medium">
+                            {priceLabel}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -57,10 +57,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
           <div className="flex space-x-4 overflow-x-auto pb-4 scrollbar-hide">
             {events.map((event) => {
               const hasRating = typeof event.rating === 'number' && !Number.isNaN(event.rating);
-              const ratingValue = hasRating ? event.rating!.toFixed(1) : '—';
-              const ratingClasses = hasRating
-                ? 'bg-green-500 text-white'
-                : 'bg-gray-200 text-gray-600';
+              const ratingLabel = hasRating ? event.rating!.toFixed(1) : null;
               const hasDiscount = typeof event.discount === 'number' && !Number.isNaN(event.discount);
               const discountLabel = hasDiscount ? `до ${Math.round(event.discount ?? 0)}%` : null;
               const hasPrice = typeof event.price === 'number' && !Number.isNaN(event.price);
@@ -68,7 +65,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                 ? event.price === 0
                   ? 'Бесплатно'
                   : `от ${new Intl.NumberFormat('ru-RU').format(event.price ?? 0)} ₽`
-                : 'Цена по запросу';
+                : null;
 
               return (
                 <div
@@ -92,11 +89,13 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                       )}
 
                       {/* Рейтинг */}
-                      <div className="absolute top-2 left-2">
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${ratingClasses}`}>
-                          {ratingValue}
+                      {ratingLabel && (
+                        <div className="absolute top-2 left-2">
+                          <div className="px-2 py-1 rounded-full text-xs font-medium bg-green-500 text-white">
+                            {ratingLabel}
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Категория */}
                       <div className="absolute bottom-2 left-2">
@@ -124,9 +123,11 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                             </span>
                           )}
                         </div>
-                        <div className="text-sm font-medium text-gray-900 text-right">
-                          {priceLabel}
-                        </div>
+                        {priceLabel && (
+                          <div className="text-sm font-medium text-gray-900 text-right">
+                            {priceLabel}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -31,10 +31,29 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose }) => {
     ? event.price === 0
       ? 'Бесплатно'
       : `${new Intl.NumberFormat('ru-RU').format(event.price ?? 0)} ₽`
-    : '—';
-  const ratingLabel = hasRating ? event.rating!.toFixed(1) : '—';
-  const discountLabel = hasDiscount ? `${Math.round(event.discount ?? 0)}%` : '—';
+    : null;
+  const ratingLabel = hasRating ? event.rating!.toFixed(1) : null;
+  const discountLabel = hasDiscount ? `−${Math.round(event.discount ?? 0)}%` : null;
   const paymentUrl = event.payment_url && event.payment_url.trim() ? event.payment_url.trim() : null;
+  const metrics: { label: string; value: string }[] = [];
+
+  if (priceLabel) {
+    metrics.push({ label: 'Стоимость', value: priceLabel });
+  }
+  if (ratingLabel) {
+    metrics.push({ label: 'Рейтинг', value: ratingLabel });
+  }
+  if (discountLabel) {
+    metrics.push({ label: 'Скидка', value: discountLabel });
+  }
+
+  const metricGridColumns = [
+    'grid grid-cols-1 gap-4 mb-6',
+    metrics.length >= 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-1',
+    metrics.length >= 3 ? 'lg:grid-cols-3' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -83,22 +102,16 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose }) => {
           </div>
 
           {/* Основные показатели */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div className="bg-gray-50 rounded-lg p-4 text-center">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Стоимость</p>
-              <p className="text-lg font-semibold text-gray-900 mt-1">{priceLabel}</p>
+          {metrics.length > 0 && (
+            <div className={metricGridColumns}>
+              {metrics.map((metric) => (
+                <div key={metric.label} className="bg-gray-50 rounded-lg p-4 text-center">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">{metric.label}</p>
+                  <p className="text-lg font-semibold text-gray-900 mt-1">{metric.value}</p>
+                </div>
+              ))}
             </div>
-            <div className="bg-gray-50 rounded-lg p-4 text-center">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Рейтинг</p>
-              <p className="text-lg font-semibold text-gray-900 mt-1">{ratingLabel}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4 text-center">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Скидка</p>
-              <p className="text-lg font-semibold text-gray-900 mt-1">
-                {hasDiscount ? `−${discountLabel}` : discountLabel}
-              </p>
-            </div>
-          </div>
+          )}
 
           {/* Описание */}
           {event.description && (
