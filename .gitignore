@@ -135,3 +135,10 @@ jspm_packages/
 # Static files
 /backend/app/static/uploads/*
 !/backend/app/static/uploads/.gitkeep
+
+# Local development tooling (never commit virtualenv and test caches)
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pypackages__/
