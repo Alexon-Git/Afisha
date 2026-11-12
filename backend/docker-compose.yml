@@ -9,7 +9,7 @@ services:
     volumes:
       - afisha_db_data:/var/lib/postgresql/data
     ports:
-      - "5439:5432"
+      - "127.0.0.1:5439:5432"
     networks:
       - afisha
 
@@ -17,7 +17,7 @@ services:
     build: .
     container_name: afisha-backend
     ports:
-      - "8039:8039"
+      - "127.0.0.1:8039:8039"
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in backend/.env}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in backend/.env}
