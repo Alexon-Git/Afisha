@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import logging
 import math
-import shutil
 from datetime import datetime, timedelta
-from os import SEEK_END, SEEK_SET
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, Optional, Tuple
+from uuid import uuid4
 
 from fastapi import UploadFile
+from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import asc, desc, func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -26,6 +27,8 @@ class EventService:
     """High level API for querying and mutating events."""
 
     _MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 MB
+    _MAX_IMAGE_PIXELS = 20_000_000
+    _IMAGE_EXTENSIONS = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
     _BASE_DIR = Path(__file__).resolve().parents[1]
     _UPLOAD_DIR = _BASE_DIR / "static" / "uploads"
 
@@ -146,22 +149,45 @@ class EventService:
     def save_image(self, file: UploadFile) -> str:
         if not file.filename:
             raise InvalidImageError("File must have a name")
-        if not file.content_type or not file.content_type.startswith("image/"):
-            raise InvalidImageError("File must be an image")
-
-        file.file.seek(0, SEEK_END)
-        file_size = file.file.tell()
-        file.file.seek(0, SEEK_SET)
-        if file_size > self._MAX_UPLOAD_SIZE:
+        file.file.seek(0)
+        content = file.file.read(self._MAX_UPLOAD_SIZE + 1)
+        if len(content) > self._MAX_UPLOAD_SIZE:
             raise InvalidImageError("File size must be less than 5MB")
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        safe_name = Path(file.filename).name.replace(" ", "_")
-        filename = f"{timestamp}_{safe_name}"
+        try:
+            with Image.open(BytesIO(content), formats=list(self._IMAGE_EXTENSIONS)) as image:
+                image_format = image.format
+                if image.width * image.height > self._MAX_IMAGE_PIXELS:
+                    raise InvalidImageError("Image must not exceed 20 million pixels")
+                if getattr(image, "n_frames", 1) != 1:
+                    raise InvalidImageError("Animated images are not supported")
+                image.verify()
+
+            # verify() checks structure; load() also checks the compressed pixels.
+            # Re-encode instead of publishing the untrusted original bytes.
+            with Image.open(BytesIO(content), formats=list(self._IMAGE_EXTENSIONS)) as image:
+                image.load()
+                ImageOps.exif_transpose(image, in_place=True)
+                with image.convert("RGB" if image_format == "JPEG" else "RGBA") as clean_image:
+                    clean_image.info.clear()
+                    output = BytesIO()
+                    clean_image.save(output, format=image_format)
+                    content = output.getvalue()
+        except (UnidentifiedImageError, OSError, SyntaxError, ValueError, Image.DecompressionBombError) as exc:
+            raise InvalidImageError("File must be a valid JPG, PNG or WebP image") from exc
+
+        if len(content) > self._MAX_UPLOAD_SIZE:
+            raise InvalidImageError("Encoded image must be less than 5MB")
+
+        filename = f"{uuid4().hex}{self._IMAGE_EXTENSIONS[image_format]}"
         file_path = self._UPLOAD_DIR / filename
 
-        with file_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        with file_path.open("xb") as buffer:
+            try:
+                buffer.write(content)
+            except OSError:
+                file_path.unlink(missing_ok=True)
+                raise
 
         return f"/static/uploads/{filename}"
 
