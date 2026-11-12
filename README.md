@@ -23,6 +23,10 @@ AI-агентов могли продолжать работу без потер
 планируемые функции за уже реализованные.
 
 
+
+Для работы в Codex Desktop/CLI: [docs/CODEX_SETUP.md](docs/CODEX_SETUP.md).
+Локальные экономные скиллы — `.agents/skills/`.
+
 ## Стек
 - Backend: Python 3.11, FastAPI, SQLAlchemy, PostgreSQL 17, Alembic.
 - Frontend: React 18, TypeScript, Tailwind CSS (Create React App).
