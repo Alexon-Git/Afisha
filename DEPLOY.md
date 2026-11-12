@@ -1,43 +1,23 @@
-# Deployment guide — Afisha
+# Deployment — draft for the reactivated Afisha project
 
-This document explains how to deploy the Afisha project to a Linux server and how CI/CD (GitHub Actions) in this repository will deploy the app.
+There is no production server selected yet. This document contains a
+pre-deployment checklist, **not a working CI/CD promise**.
 
-Server paths (assumed):
-- Frontend: `/var/www/alexon/Afisha/frontend/`
-- Backend: `/var/www/alexon/Afisha/backend/`
+1. Run `pytest -q` and perform API/Frontend smoke tests.
+2. Confirm whether production database is empty. If not, follow
+   [backend/MIGRATIONS.md](backend/MIGRATIONS.md) and test with a backup copy.
+3. Prepare unique `POSTGRES_PASSWORD`, `DATABASE_URL`, `SECRET_KEY`,
+   `ADMIN_USERNAME`, and `ADMIN_PASSWORD` in `backend/.env`. Never commit
+   this file or expose it in logs.
+4. Configure domain, Nginx HTTPS, and proper API origin. The frontend currently
+   has a hardcoded production API origin; it requires adjustment before deploy.
+5. Restrict public ports to 80/443. PostgreSQL and API are loopback-bound by
+   backend/docker-compose.yml and should not be published publicly.
+6. Configure durable volumes, backups, monitoring, rate limits and log rotation.
+7. With an empty database, `cd backend && docker compose up -d --build`.
+   Backend runs Alembic migrations, then bootstrap administrator.
+8. Confirm `/health`, authenticated administration, events CRUD and uploads.
+9. Never assume the previous deployment paths or SSH secrets still apply.
 
-Required server preparation
-1. Create a user (e.g. `alexon`) and ensure it has sudo privileges for service control and Docker.
-2. Install Docker and Docker Compose v2 (or ensure `docker compose` command exists).
-3. Install Nginx and enable the site config (copy `deploy/nginx/afisha.conf` to `/etc/nginx/sites-available/afisha.conf` and symlink to `sites-enabled`).
-4. Create directories and set ownership:
-
-```bash
-sudo mkdir -p /var/www/alexon/Afisha/frontend
-sudo mkdir -p /var/www/alexon/Afisha/backend
-sudo chown -R alexon:alexon /var/www/alexon
-```
-
-5. (Optional) Set up SSL (Certbot) for the domain.
-
-GitHub Actions secrets required
-- `HOST` — server hostname or IP
-- `USERNAME` — SSH username (e.g. alexon)
-- `PASSWORD` — password for the SSH user (used by sshpass). NOTE: SSH key is recommended instead of a password.
-- `PAT` — (optional) GitHub PAT if additional API access needed; not required for these workflows
-
-How CI/CD works (current workflows)
-- `deploy-frontend.yml` — builds the frontend (`npm run build`) and rsyncs `frontend/build/` to `/var/www/alexon/Afisha/frontend/` on the server, then reloads nginx.
-- `deploy-backend.yml` — rsyncs `backend/` to the server (excluding `data/`) and restarts backend via `docker compose up -d --build`.
-
-Notes and security recommendations
-- Using `PASSWORD` and `sshpass` is less secure. Prefer adding an SSH private key to GitHub Secrets (`SSH_PRIVATE_KEY`) and updating workflows to use it.
-- Secrets must be stored in the repository's Settings → Secrets & variables → Actions.
-- Configure firewall to only allow necessary ports (80/443 for nginx, not exposing backend port publicly).
-
-Systemd/service
-- We provide `deploy/systemd/afisha-backend.service` as an example if you want systemd to manage the backend docker-compose lifecycle.
-
-Troubleshooting
-- If files are not synced, verify rsync and SSH access manually using the same HOST/USERNAME/PASSWORD.
-- Check nginx logs `/var/log/nginx/afisha-error.log` and `/var/log/nginx/afisha-access.log`.
+The existing `deploy/nginx/afisha.conf` is an illustrative example; its server
+name, static paths and frontend API proxy require review for the new host.
