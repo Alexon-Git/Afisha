@@ -1,86 +1,42 @@
-# Афиша мероприятий - Backend
+# Afisha backend
 
-FastAPI приложение для управления мероприятиями.
+FastAPI, SQLAlchemy, PostgreSQL (SQLite for local development),
+Alembic migrations and JWT administrator authentication.
 
-## Запуск с Docker
-
-### 1. Подготовка
-
-Скопируйте файл конфигурации:
-
+### Local startup
 ```bash
+cd backend
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 cp env.example .env
+# set secure SECRET_KEY and ADMIN_PASSWORD values in .env
+python start.py
 ```
 
-Отредактируйте `.env` файл под ваши нужды.
+The startup runs migrations, then creates an admin if absent, then starts
+Uvicorn at http://127.0.0.1:8039. It does not seed demo events.
 
-### 2. Сборка и запуск
-
+### Docker Compose
 ```bash
-# Сборка образа
-docker build -t afisha-backend .
-
-# Запуск контейнера
-docker run -d \
-  --name afisha-backend \
-  -p 8000:8000 \
-  --env-file .env \
-  afisha-backend
+cd backend
+cp env.compose.example .env
+# configure DATABASE_URL, POSTGRES_PASSWORD and secure secrets
+docker compose up --build
 ```
 
-### 3. Проверка работы
+API: http://127.0.0.1:8039. The compose stack does not include frontend.
 
-- API доступно по адресу: http://localhost:8000
-- Документация API: http://localhost:8000/docs
-- Health check: http://localhost:8000/health
+### Existing databases
+Read [MIGRATIONS.md](MIGRATIONS.md) before starting a preexisting database.
+The initial revision intentionally refuses to modify unversioned legacy tables.
 
-## Конфигурация
-
-### Переменные окружения
-
-- `DATABASE_URL` - URL базы данных (по умолчанию SQLite)
-- `SECRET_KEY` - Секретный ключ для JWT токенов
-- `ALGORITHM` - Алгоритм для JWT (по умолчанию HS256)
-- `ACCESS_TOKEN_EXPIRE_MINUTES` - Время жизни токена в минутах
-- `ADMIN_USERNAME` - Имя администратора
-- `ADMIN_PASSWORD` - Пароль администратора
-
-### База данных
-
-По умолчанию используется SQLite. Для использования PostgreSQL:
-
-1. Установите PostgreSQL
-2. Создайте базу данных
-3. Обновите `DATABASE_URL` в `.env` файле
-
-## API Endpoints
-
-- `GET /` - Главная страница API
-- `GET /health` - Проверка состояния
-- `POST /auth/login` - Авторизация
-- `GET /events/` - Список мероприятий
-- `POST /events/` - Создание мероприятия (требует авторизации)
-- `PUT /events/{id}` - Обновление мероприятия (требует авторизации)
-- `DELETE /events/{id}` - Удаление мероприятия (требует авторизации)
-
-## Структура проекта
-
-```
-backend/
-├── app/
-│   ├── auth/          # Модуль авторизации
-│   ├── models/        # SQLAlchemy модели
-│   ├── routers/       # API роутеры
-│   ├── schemas/       # Pydantic схемы
-│   ├── static/        # Статические файлы
-│   ├── config.py      # Конфигурация
-│   ├── database.py    # Настройка БД
-│   └── main.py        # Главный файл приложения
-├── alembic/           # Миграции базы данных
-├── create_admin.py    # Скрипт создания администратора
-├── Dockerfile         # Docker конфигурация
-├── requirements.txt   # Python зависимости
-└── env.example        # Пример конфигурации
+### Smoke tests
+```bash
+pip install -r requirements-dev.txt
+pytest -q
 ```
 
-
+Public endpoints: `GET /health`, `GET /events/`, `GET /categories/`.
+Protected by admin JWT: create/update/delete events/categories,
+image uploads and `POST /auth/register`.
