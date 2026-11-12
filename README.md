@@ -2,6 +2,27 @@
 
 Текущая рабочая ветка: `master`. Старую `main` сохраняем как архив предыдущей реализации.
 
+## Паспорт проекта и работа с AI-агентами
+
+Проект развивается как **бизнес-афиша Новосибирска**. Контекст, требования
+и история решений хранятся в репозитории, чтобы несколько разработчиков и
+AI-агентов могли продолжать работу без потери договорённостей.
+
+- [AGENTS.md](AGENTS.md) — единые правила для AI-агентов.
+- [CLAUDE.md](CLAUDE.md) — точка входа для Claude Code.
+- [docs/PROJECT_PASSPORT.md](docs/PROJECT_PASSPORT.md) — паспорт проекта.
+- [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) — P0/P1/P2.
+- [docs/ROADMAP.md](docs/ROADMAP.md) — дорожная карта.
+- [docs/DEVELOPMENT_CONTEXT.md](docs/DEVELOPMENT_CONTEXT.md) — реализованный код и технический долг.
+- [docs/DECISIONS.md](docs/DECISIONS.md) — решения и открытые вопросы.
+- [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md) — передача задач следующему агенту.
+- [docs/README.md](docs/README.md) — индекс документации.
+
+**Порядок входа нового агента:** сначала AGENTS.md → паспорт →
+требования → текущий handoff → фактический код → тесты. Не принимайте
+планируемые функции за уже реализованные.
+
+
 ## Стек
 - Backend: Python 3.11, FastAPI, SQLAlchemy, PostgreSQL 17, Alembic.
 - Frontend: React 18, TypeScript, Tailwind CSS (Create React App).
