@@ -23,6 +23,9 @@ pwd_context = CryptContext(
     pbkdf2_sha256__rounds=290000,
 )
 security = HTTPBearer()
+# Match password-hashing work for missing usernames as well as wrong passwords.
+# This is a public dummy value, not a user's credential.
+_DUMMY_PASSWORD_HASH = pwd_context.hash("afisha-dummy-not-a-user-password")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -50,9 +53,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
     user_service = UserService(db)
     user = user_service.get_by_username(username)
-    if not user:
-        return None
-    if not verify_password(password, user.password_hash):
+    valid_password = verify_password(password, user.password_hash if user else _DUMMY_PASSWORD_HASH)
+    if not user or not valid_password:
         return None
     return user
 
