@@ -20,7 +20,7 @@
 
 - [x] `master` создана, `main` сохранена; убраны небезопасные секреты по умолчанию; регистрация только для администратора; нет авто-схемы при импорте; initial-миграция; backend CI (`5fe7cf6`).
 - [x] Безопасная загрузка изображений — в `master` (PR #15, `2985b5e`).
-- [ ] **PR-1.** Ограничение попыток логина и доверие proxy: реализация лежит только в `stash@{0}` (`ff658e9`), в ветке `fix/auth-rate-limiting` коммитов нет. Порядок: [PR1_AUTH_RATE_LIMITING_PLAN.md](PR1_AUTH_RATE_LIMITING_PLAN.md). Нужна проверка на PostgreSQL.
+- [x] **PR-1.** Ограничение попыток логина и доверие proxy — DONE: PR #16 влит в `master` (merge-коммит `666696e`; коммиты `b9cba12`, `138ca5e`); CI Pull Request и CI `master` после merge — success, job backend-tests пройден. Проверено на SQLite (68 тестов), PostgreSQL 17 и Docker Compose. **Остаётся до запуска:** настройка trusted proxy на production (см. RELEASE_CHECKLIST §1) и дополнительная защита входа администратора. Stash `ff658e9` сохранён до отдельного решения об очистке.
 - [ ] **PR-2.** `python-multipart` (известная уязвимость в 0.0.6): выбрать версию после проверки совместимости с FastAPI 0.104; ограничить размер тела запроса на Nginx.
 - [ ] **PR-3.** `.dockerignore`, compose/Dockerfile, приватность портов.
 - [ ] Проверить Docker Compose и миграции на PostgreSQL (чистая БД и копия старой схемы).

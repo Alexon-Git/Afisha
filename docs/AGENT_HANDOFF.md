@@ -146,6 +146,6 @@ GitHub-коммиты и файлы на личном Mac не синхрони�
 - Ветка: `audit/predevelopment-review` от `master` (`2985b5e`). Код, миграции, зависимости не менялись; push, merge и deploy не выполнялись.
 - Файлы: `docs/audits/ENGINEERING_REVIEW.md`, `docs/audits/PRODUCT_REVIEW.md`, `docs/DECISIONS.md` (D-012…D-019, уточнение D-019), `docs/ROADMAP.md`, `docs/RELEASE_CHECKLIST.md`, `docs/PR1_AUTH_RATE_LIMITING_PLAN.md`, `TECHNICAL_PLAN.md` (корень).
 - Утверждено владельцем: аудитория, scope MVP, публичный запуск с SEO, редактор 5–10 ч/нед, агрегация из открытых источников, 8 недель оценки, ручная B2B-монетизация, проверенный минимум полей; архитектура R1–R5 (Next.js для публичной части, админка на React SPA, один origin, UTC в БД, модель Organizer, ревью auth из stash).
-- Состояние stash: работа по логину и proxy лежит только в `stash@{0}` (`ff658e9`); в ветке `fix/auth-rate-limiting` собственных коммитов нет. Stash не применять через `pop` и не удалять до интеграции.
-- Не проверено: PostgreSQL и Docker (daemon не запущен, `psql` нет), семантика старых naive datetime (данных нет), число тестов в stash, поведение stash при выполнении.
-- Следующая задача: PR-1 по `docs/PR1_AUTH_RATE_LIMITING_PLAN.md` — только после отдельной команды владельца.
+- PR-1 выполнен: PR #16 влит в `master` (merge-коммит `666696e`; коммиты `b9cba12`, `138ca5e`); CI Pull Request и CI `master` после merge — success, job backend-tests пройден. Stash `ff658e9` и ветка `backup/5d9f280-original` сохранены; удалять только по явной команде владельца.
+- Проверено для PR-1: SQLite (68 тестов), PostgreSQL 17, Docker Compose, реальный Nginx. Не проверено: семантика старых naive datetime (данных нет), миграция копии старой БД.
+- Следующая задача: PR-2 (`python-multipart`, совместимость с FastAPI 0.104) — только после отдельной команды владельца.
