@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 
 class Settings(BaseSettings):
@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     admin_username: str = "admin"
     admin_password: str
     admin_email: str = "admin@afisha.ru"
+    login_account_limit: int = Field(default=5, ge=1, le=1000)
+    login_source_limit: int = Field(default=30, ge=1, le=10000)
+    login_window_seconds: int = Field(default=900, ge=1, le=86400)
 
     @field_validator("secret_key")
     @classmethod

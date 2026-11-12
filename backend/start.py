@@ -17,7 +17,7 @@ def main() -> None:
                    cwd=ROOT, check=True)
     subprocess.run([sys.executable, "create_admin.py"], cwd=ROOT, check=True)
     subprocess.run([sys.executable, "-m", "uvicorn", "app.main:app",
-                    "--host", "127.0.0.1", "--port", "8039", "--reload"],
+                    "--host", "127.0.0.1", "--port", "8039", "--reload", "--no-proxy-headers"],
                    cwd=ROOT, check=True)
 
 if __name__ == "__main__":

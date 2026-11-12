@@ -4,7 +4,6 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from .models import category as _category_model  # noqa: F401
 from .models import event as _event_model  # noqa: F401
@@ -19,7 +18,8 @@ app = FastAPI(
     version="1.0.0",
 )
 
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+# Proxy headers are intentionally ignored until the real reverse proxy is
+# configured. Start Uvicorn with --no-proxy-headers to preserve the socket peer.
 
 app.add_middleware(
     CORSMiddleware,
