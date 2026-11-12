@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from ..auth.auth import authenticate_user, create_access_token, get_current_user
+from ..auth.auth import authenticate_user, create_access_token, get_current_user, get_current_admin_user
 from ..config import settings
 from ..database import get_db
 from ..models.user import User
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserSchema)
-def register(user: UserCreate, user_service: UserService = Depends(get_user_service)):
+def register(user: UserCreate, current_admin: User = Depends(get_current_admin_user), user_service: UserService = Depends(get_user_service)):
     try:
         return user_service.register_user(user)
     except UserAlreadyExistsError as exc:
