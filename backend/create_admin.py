@@ -70,7 +70,6 @@ def create_admin():
         db.add(admin)
         db.commit()
         print(f"Администратор {settings.admin_username} создан успешно")
-        print(f"Пароль: {settings.admin_password}")
         
     except Exception as e:
         print(f"Ошибка при создании администратора: {e}")
