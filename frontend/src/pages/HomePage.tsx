@@ -26,7 +26,7 @@ const HomePage: React.FC = () => {
     setLoading(true);
     try {
       const [thisWeekResponse, categoriesResponse] = await Promise.all([
-        eventsApi.getAll(1, 5),
+        eventsApi.getAll(1, 5, { date_from: startDate ? format(startDate, "yyyy-MM-dd") : undefined, date_to: endDate ? format(endDate, "yyyy-MM-dd") : startDate ? format(startDate, "yyyy-MM-dd") : undefined }),
         categoriesApi.getAll(),
       ]);
 
@@ -37,7 +37,7 @@ const HomePage: React.FC = () => {
 
       const sections = await Promise.all(
         highlightedCategories.map(async (category) => {
-          const response = await eventsApi.getAll(1, 6, { category: category.slug });
+          const response = await eventsApi.getAll(1, 6, { category: category.slug, date_from: startDate ? format(startDate, "yyyy-MM-dd") : undefined, date_to: endDate ? format(endDate, "yyyy-MM-dd") : startDate ? format(startDate, "yyyy-MM-dd") : undefined });
           return {
             category,
             events: response.data.items ?? [],
@@ -57,7 +57,7 @@ const HomePage: React.FC = () => {
   // Загружаем события при монтировании компонента
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [startDate, endDate]);
 
   const handleEventClick = (event: Event) => {
     setSelectedEvent(event);
