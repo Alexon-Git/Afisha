@@ -6,6 +6,11 @@ services:
       POSTGRES_USER: afisha
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
       POSTGRES_DB: afisha_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U afisha -d afisha_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     volumes:
       - afisha_db_data:/var/lib/postgresql/data
     ports:
@@ -30,11 +35,13 @@ services:
       - ./data:/app/data
     command: >
       sh -c "
+        alembic upgrade head &&
         python create_admin.py &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8039
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8039
       "
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - afisha
 
