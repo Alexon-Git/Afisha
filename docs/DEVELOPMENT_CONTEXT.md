@@ -232,3 +232,21 @@ Frontend, Docker/PostgreSQL и браузер не запускались. Ог�
 не создавались. Личный gstack 1.99.2.0 установлен ранее, runtime найден
 preflight; gstack-проверки на Afisha не запускались. Старые отметки выше о
 неподтверждённой установке отражают состояние исходного GitHub-снимка.
+
+## 10. 2026-11-12 — предпроектный аудит и план MVP (документация)
+
+Источник: ветка `audit/predevelopment-review`, чтение кода и Git; код не менялся.
+Отчёты: `docs/audits/ENGINEERING_REVIEW.md`, `docs/audits/PRODUCT_REVIEW.md`.
+План реализации: `TECHNICAL_PLAN.md` (корень репозитория, v2.1), критерии запуска:
+`docs/RELEASE_CHECKLIST.md`, ближайший PR: `docs/PR1_AUTH_RATE_LIMITING_PLAN.md`.
+
+- `master` = `666696e` (PR #16 включён поверх PR #15). Rate limiting логина (таблица
+  `login_attempts`, миграция `0002`) и отказ от доверия proxy влиты в `master`
+  (`b9cba12`, `138ca5e`), CI успешен. Stash `ff658e9` сохранён до отдельного решения
+  об очистке. Настройка trusted proxy на production остаётся условием запуска.
+- Event сейчас без `event_url`, организатора, источника, `verified_at` и статусов
+  публикации; `datetime` без часового пояса.
+- Frontend: CRA, API origin и CORS привязаны к `afisha.lalexonl.ru` (домен не утверждён).
+  CRA и загрузки backend используют общий путь `/static`: при размещении админки
+  в `/admin` нужна настройка `PUBLIC_URL`/`basename`.
+- Не проверялось: PostgreSQL, Docker, сборка frontend, браузер, данные старой БД.

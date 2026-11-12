@@ -142,3 +142,7 @@ jspm_packages/
 .mypy_cache/
 .ruff_cache/
 __pypackages__/
+
+# Local tooling output (Graphify); personal hook has absolute paths
+graphify-out/
+.codex/hooks.json
