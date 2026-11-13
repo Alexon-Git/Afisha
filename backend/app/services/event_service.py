@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -52,6 +54,8 @@ class EventService:
         page = max(page, 1)
         limit = max(1, min(limit, 100))
 
+        # Validate before category lookup: an unknown category must not hide bad dates.
+        start, end = self._resolve_date_filters(date=date, date_from=date_from, date_to=date_to)
         filters = []
         if category:
             category_obj = self._session.scalar(
@@ -67,16 +71,10 @@ class EventService:
                 }
             filters.append(Event.category_id == category_obj.id)
 
-        try:
-            start, end = self._resolve_date_filters(date=date, date_from=date_from, date_to=date_to)
-        except InvalidDateFilterError as exc:
-            logger.warning("Unable to apply date filter: %s", exc)
-            start = end = None
-
         if start:
             filters.append(Event.datetime >= start)
         if end:
-            filters.append(Event.datetime <= end)
+            filters.append(Event.datetime < end)
 
         order_expression = self._get_sorting_expression(sort)
 
@@ -198,46 +196,44 @@ class EventService:
         date_from: Optional[str],
         date_to: Optional[str],
     ) -> Tuple[Optional[datetime], Optional[datetime]]:
-        if date_from or date_to:
-            start = self._parse_iso_date(date_from) if date_from else None
-            end = self._parse_iso_date(date_to) if date_to else None
-            if start and not end:
-                end = start.replace(hour=23, minute=59, second=59)
-            elif end and not start:
-                start = end.replace(hour=0, minute=0, second=0)
-            if start and end and start > end:
+        if date_from is not None or date_to is not None:
+            start = self._parse_iso_date(date_from) if date_from is not None else None
+            last = self._parse_iso_date(date_to) if date_to is not None else None
+            # A single supplied boundary still selects one calendar day.
+            start = start if start is not None else last
+            last = last if last is not None else start
+            if start > last:
                 raise InvalidDateFilterError("date_from must be before date_to")
-            return start, end
-        if not date:
+        elif date is None:
             return None, None
-
-        now = datetime.now()
-        start: Optional[datetime] = None
-        end: Optional[datetime] = None
-        if date == "today":
-            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            end = start.replace(hour=23, minute=59, second=59)
-        elif date == "tomorrow":
-            start = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-            end = start.replace(hour=23, minute=59, second=59)
-        elif date == "weekend":
-            weekday = now.weekday()
-            days_until_sat = (5 - weekday) % 7
-            start = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=days_until_sat)
-            end = start + timedelta(days=1, hours=23, minutes=59, seconds=59)
         else:
-            start = self._parse_iso_date(date)
-            end = start.replace(hour=23, minute=59, second=59)
-        return start, end
+            if date in ("today", "tomorrow", "weekend"):
+                # Only the calendar day uses a zone; SQL boundaries stay naive
+                # until the separate historical-data/timestamptz migration.
+                today = datetime.now(ZoneInfo("Asia/Novosibirsk")).date()
+                start = datetime(today.year, today.month, today.day)
+                if date == "tomorrow":
+                    start += timedelta(days=1)
+                elif date == "weekend":
+                    # Sunday belongs to the current weekend, not the next one.
+                    days_until_sat = -1 if today.weekday() == 6 else (5 - today.weekday()) % 7
+                    start += timedelta(days=days_until_sat)
+                last = start + timedelta(days=1) if date == "weekend" else start
+            else:
+                start = last = self._parse_iso_date(date)
+        try:
+            return start, last + timedelta(days=1)
+        except OverflowError as exc:
+            raise InvalidDateFilterError("Last calendar day must be before 9999-12-31") from exc
 
     def _parse_iso_date(self, value: Optional[str]) -> datetime:
-        if not value:
-            raise InvalidDateFilterError("Date value is missing")
+        if not value or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+            raise InvalidDateFilterError("Date must use YYYY-MM-DD format")
         try:
             y, m, d = map(int, value.split("-"))
             return datetime(y, m, d, 0, 0, 0)
         except (TypeError, ValueError) as exc:
-            raise InvalidDateFilterError(f"Invalid date format: {value}") from exc
+            raise InvalidDateFilterError("Invalid calendar date") from exc
 
     def _get_sorting_expression(self, sort: Optional[str]):
         if sort == "desc":

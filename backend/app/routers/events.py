@@ -7,7 +7,7 @@ from ..dependencies import get_event_service
 from ..models.user import User
 from ..schemas.event import Event as EventSchema, EventCreate, EventUpdate, PaginatedEvents
 from ..services.event_service import EventService
-from ..services.exceptions import EventNotFoundError, InvalidImageError
+from ..services.exceptions import EventNotFoundError, InvalidDateFilterError, InvalidImageError
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -17,21 +17,24 @@ def read_events(
     page: int = 1,
     limit: int = 10,
     date: Optional[str] = Query(None, description="today | tomorrow | weekend | YYYY-MM-DD"),
-    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD, inclusive; alone selects one day"),
+    date_to: Optional[str] = Query(None, description="YYYY-MM-DD, inclusive; alone selects one day"),
     category: Optional[str] = Query(None),
     sort: Optional[str] = Query("asc", description="asc | desc"),
     event_service: EventService = Depends(get_event_service),
 ):
-    return event_service.list_events(
-        page=page,
-        limit=limit,
-        date=date,
-        date_from=date_from,
-        date_to=date_to,
-        category=category,
-        sort=sort,
-    )
+    try:
+        return event_service.list_events(
+            page=page,
+            limit=limit,
+            date=date,
+            date_from=date_from,
+            date_to=date_to,
+            category=category,
+            sort=sort,
+        )
+    except InvalidDateFilterError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/{event_id}", response_model=EventSchema)
