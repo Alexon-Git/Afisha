@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session, joinedload
 from ..models.category import Category
 from ..models.event import Event
 from ..schemas.event import EventCreate, EventUpdate
-from .exceptions import EventNotFoundError, InvalidDateFilterError, InvalidImageError
+from .exceptions import CategoryNotFoundError, EventNotFoundError, InvalidDateFilterError, InvalidImageError
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +110,7 @@ class EventService:
         return event
 
     def create_event(self, event_in: EventCreate, *, creator_id: Optional[int]) -> Event:
+        self._validate_category(event_in.category_id)
         db_event = Event(**event_in.model_dump(), creator_id=creator_id)
         self._session.add(db_event)
         self._session.commit()
@@ -124,6 +125,8 @@ class EventService:
             raise EventNotFoundError(f"Event with id={event_id} does not exist")
 
         update_data = event_update.model_dump(exclude_unset=True)
+        if "category_id" in update_data:
+            self._validate_category(update_data["category_id"])
         for field, value in update_data.items():
             setattr(db_event, field, value)
 
@@ -132,6 +135,10 @@ class EventService:
         if db_event.category_id:
             _ = db_event.category
         return db_event
+
+    def _validate_category(self, category_id: Optional[int]) -> None:
+        if category_id is not None and self._session.get(Category, category_id) is None:
+            raise CategoryNotFoundError("Category not found")
 
     def delete_event(self, event_id: int) -> None:
         db_event = self._session.get(Event, event_id)
