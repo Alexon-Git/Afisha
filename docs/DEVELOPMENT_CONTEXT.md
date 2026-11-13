@@ -250,3 +250,57 @@ preflight; gstack-проверки на Afisha не запускались. Ст
   CRA и загрузки backend используют общий путь `/static`: при размещении админки
   в `/admin` нужна настройка `PUBLIC_URL`/`basename`.
 - Не проверялось: PostgreSQL, Docker, сборка frontend, браузер, данные старой БД.
+
+## 11. 2026-11-13 — PR-3: безопасность Docker и Compose
+
+Источник: ветка `fix/docker-security` от актуального `origin/master`
+`b4622f7` (PR #18 уже включён). Production, рабочие тома и stash не
+затрагивались; проверки выполнены в отдельном Compose-проекте с отдельным
+PostgreSQL volume, тестовыми credentials и uploads-каталогом.
+
+- Новый `backend/.dockerignore` исключает `.env`, ключи, локальные БД и дампы,
+  virtualenv/bytecode, uploads, кэши тестов, Graphify и локальные настройки Codex.
+  Alembic, приложение, `requirements.txt` и `create_admin.py` остаются в образе.
+- Backend-образ использует Python 3.11 slim-bookworm с зафиксированным digest,
+  не устанавливает компилятор/curl/libpq-dev, запускается как non-root UID/GID,
+  имеет healthcheck и сохраняет fail-closed цепочку
+  `alembic upgrade head -> create_admin.py -> exec uvicorn --no-proxy-headers`.
+- Compose не задаёт глобальные `container_name` и имя сети. Порты PostgreSQL и
+  backend опубликованы только на `127.0.0.1`; backend имеет read-only rootfs,
+  tmpfs `/tmp`, `cap_drop: ALL`, `no-new-privileges` и ограничение процессов.
+- Имя существующего DB-volume по умолчанию остаётся `afisha_db_data`; для тестов
+  и параллельных проектов добавлен `POSTGRES_VOLUME_NAME`. Uploads остаются в
+  прежнем bind-пути, поэтому миграция пользовательских файлов не требуется.
+
+Фактически выполнено:
+
+- `docker compose config` с безопасным тестовым env — успешно; localhost-only
+  bindings, отдельный DB-volume и read-only backend подтверждены.
+- Backend image собран; canary `.env`/ключ/дамп/upload/Graphify/Codex-файлы не
+  попали в filesystem, config, history или сохранённые слои образа.
+- PostgreSQL 17: чистое применение `0001_initial`, затем
+  `0001_initial -> 0002_login_attempts`; таблица `login_attempts` существует.
+- Compose: 2/2 services healthy; `/health`, bootstrap и login администратора,
+  upload PNG, сохранность файла и тестовой категории после force-recreate — OK.
+- Runtime: backend non-root, rootfs read-only, capabilities dropped; Uvicorn
+  завершился по stop-сигналу с exit 0. Поддельные `X-Forwarded-For` не разделили
+  source-bucket: попытка 31 получила 429 и `Retry-After`.
+- Полный backend pytest в временной актуальной venv: **81 passed**, 45 известных
+  deprecation warnings; `compileall` и `git diff --check` успешны. Первая попытка
+  в старой общей `.venv` дала 80 passed / 1 fail из-за отсутствия уже требуемого
+  `python_multipart`; окружение проекта не изменялось.
+
+Ограничения: проверена чистая PostgreSQL-БД, но не копия старой схемы/production.
+Production trusted proxy остаётся PR-12/T8; до него сохраняется общий source-bucket
+за Nginx. Значения runtime-секретов берутся только из неотслеживаемого env и не
+встроены в образ, но оператор с полным доступом к Docker может видеть environment;
+внешний secret manager/Docker secrets — отдельное production-решение. Preflight
+ошибочно считает стандартный Git worktree «не Git checkout», потому что ожидает
+каталог `.git`; скрипт в PR-3 не менялся.
+
+Финальное review подтвердило: существующий `root:root 0755` uploads недоступен
+для записи non-root UID до одноразовой подготовки ownership. Процедура без
+перемещения/удаления данных добавлена в `backend/README.md`; на изолированном
+volume checksum существующего файла сохранился, после `chown`/`chmod u+rwX`
+запись от целевого UID успешна. Автоматический `chown` и дополнительные
+capabilities контейнеру не добавлялись.

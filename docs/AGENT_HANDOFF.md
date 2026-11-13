@@ -149,3 +149,34 @@ GitHub-коммиты и файлы на личном Mac не синхрони�
 - PR-1 выполнен: PR #16 влит в `master` (merge-коммит `666696e`; коммиты `b9cba12`, `138ca5e`); CI Pull Request и CI `master` после merge — success, job backend-tests пройден. Stash `ff658e9` и ветка `backup/5d9f280-original` сохранены; удалять только по явной команде владельца.
 - Проверено для PR-1: SQLite (68 тестов), PostgreSQL 17, Docker Compose, реальный Nginx. Не проверено: семантика старых naive datetime (данных нет), миграция копии старой БД.
 - Следующая задача: PR-2 (`python-multipart`, совместимость с FastAPI 0.104) — только после отдельной команды владельца.
+
+### 2026-11-13 — PR-3: Docker security (локально, без публикации)
+- Ветка / база: `fix/docker-security` от `origin/master` `b4622f7` (PR #18
+  merged, CI success по данным владельца). Push, merge и deploy не выполнялись.
+- Изменённые файлы: `backend/.dockerignore`, `backend/Dockerfile`,
+  `backend/README.md`, `backend/docker-compose.yml`, `backend/env.compose.example`,
+  `backend/app/static/uploads/.gitkeep`, `docs/DEVELOPMENT_CONTEXT.md` и этот файл.
+- Реализовано: закрытый build context; pinned Python 3.11 base; non-root backend;
+  healthcheck; единый Dockerfile CMD с миграциями/bootstrap и
+  `--no-proxy-headers`; localhost-only порты; read-only rootfs, dropped caps,
+  `no-new-privileges`; project-scoped контейнеры/сеть; параметризованный DB-volume
+  с сохранением прежнего имени `afisha_db_data` по умолчанию.
+- Проверки: Docker/Compose 29.6.2/5.3.1; build OK; canary-секрет отсутствует в
+  образе; PostgreSQL 17 и миграции 0001 -> 0002 OK; `/health`, admin login,
+  upload/persistence и DB persistence после пересоздания OK; 31 поддельный XFF
+  остаётся одним bucket (429 + Retry-After); graceful Uvicorn stop exit 0;
+  backend pytest **81 passed**, 45 warnings; compileall и diff-check OK.
+- Изоляция/очистка: использованы только проект `afisha_pr3_b4622f7`, volume
+  `afisha_pr3_test_db_b4622f7`, тестовые credentials и каталог в `/private/tmp`;
+  production и существующие volumes не использовались. После проверки все эти
+  тестовые контейнеры, сеть, volume, образы и временный каталог удалены.
+- Ограничения: копия старой БД не проверена; PR-12 должен настроить конкретный
+  trusted proxy/Nginx; runtime environment виден Docker-администратору;
+  production secret manager, backups/restore, сервер и домен остаются release
+  blockers. `codex-preflight.sh` не распознаёт Git worktree с `.git`-файлом.
+- Финальное review: root-owned uploads требует перед первым non-root запуском
+  одноразового `chown`/`chmod u+rwX` на точном каталоге после backup; инструкция
+  добавлена в `backend/README.md` и проверена на отдельном volume без изменения
+  checksum существующего файла. Это обязательный шаг обновления, не автоматизирован.
+- Следующее действие: после локального коммита — review/push PR-3 только по
+  отдельной команде владельца. К PR-4 автоматически не переходить.

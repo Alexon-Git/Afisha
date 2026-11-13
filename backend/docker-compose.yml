@@ -1,7 +1,6 @@
 services:
   db:
     image: postgres:17
-    container_name: afisha-db
     environment:
       POSTGRES_USER: afisha
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
@@ -14,15 +13,21 @@ services:
     volumes:
       - afisha_db_data:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:5439:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5439}:5432"
     networks:
       - afisha
+    security_opt:
+      - no-new-privileges:true
 
   backend:
-    build: .
-    container_name: afisha-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Match the deployment user's ownership of the uploads bind mount.
+    user: "${BACKEND_UID:-1000}:${BACKEND_GID:-1000}"
+    init: true
     ports:
-      - "127.0.0.1:8039:8039"
+      - "127.0.0.1:${BACKEND_PORT:-8039}:8039"
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in backend/.env}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in backend/.env}
@@ -33,15 +38,20 @@ services:
       LOGIN_WINDOW_SECONDS: ${LOGIN_WINDOW_SECONDS:-900}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in backend/.env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@afisha.ru}
     volumes:
-      - ./app/static:/app/app/static
-      - ./data:/app/data
-    command: >
-      sh -c "
-        alembic upgrade head &&
-        python create_admin.py &&
-        exec uvicorn app.main:app --host 0.0.0.0 --port 8039 --no-proxy-headers
-      "
+      - type: bind
+        source: ${UPLOADS_PATH:-./app/static/uploads}
+        target: /app/app/static/uploads
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    stop_grace_period: 20s
     depends_on:
       db:
         condition: service_healthy
@@ -50,10 +60,11 @@ services:
 
 networks:
   afisha:
-    name: afisha
 
 volumes:
   afisha_db_data:
-    name: afisha_db_data
+    # Preserve the existing production volume by default. Tests and parallel
+    # projects must set a unique POSTGRES_VOLUME_NAME.
+    name: ${POSTGRES_VOLUME_NAME:-afisha_db_data}
 
 
