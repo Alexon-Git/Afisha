@@ -1,0 +1,72 @@
+# Secrets and local configuration
+.env
+.env.*
+**/.env
+**/.env.*
+secrets/
+**/secrets/
+*.key
+*.pem
+*.secret
+credentials*.json
+
+# Git and local developer tooling
+.git
+.git/
+.gitignore
+.gitattributes
+.codex/
+**/.codex/
+.agents/
+**/.agents/
+graphify-out/
+**/graphify-out/
+.idea/
+.vscode/
+.DS_Store
+
+# Python environments, bytecode and package output
+.venv/
+venv/
+env/
+ENV/
+**/__pycache__/
+**/*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Local databases, PostgreSQL dumps and runtime data
+data/
+pgdata/
+postgres-data/
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+*.dump
+*.backup
+
+# User uploads are runtime data and are mounted separately
+app/static/uploads/
+app/static/uploads/**
+
+# Test, coverage and tool artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+test-results/
+reports/
+*.log
+
+# Frontend artifacts accidentally placed in the backend context
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
