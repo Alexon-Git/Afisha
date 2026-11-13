@@ -297,3 +297,10 @@ Production trusted proxy остаётся PR-12/T8; до него сохраня
 внешний secret manager/Docker secrets — отдельное production-решение. Preflight
 ошибочно считает стандартный Git worktree «не Git checkout», потому что ожидает
 каталог `.git`; скрипт в PR-3 не менялся.
+
+Финальное review подтвердило: существующий `root:root 0755` uploads недоступен
+для записи non-root UID до одноразовой подготовки ownership. Процедура без
+перемещения/удаления данных добавлена в `backend/README.md`; на изолированном
+volume checksum существующего файла сохранился, после `chown`/`chmod u+rwX`
+запись от целевого UID успешна. Автоматический `chown` и дополнительные
+capabilities контейнеру не добавлялись.

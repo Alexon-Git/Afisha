@@ -154,7 +154,7 @@ GitHub-коммиты и файлы на личном Mac не синхрони�
 - Ветка / база: `fix/docker-security` от `origin/master` `b4622f7` (PR #18
   merged, CI success по данным владельца). Push, merge и deploy не выполнялись.
 - Изменённые файлы: `backend/.dockerignore`, `backend/Dockerfile`,
-  `backend/docker-compose.yml`, `backend/env.compose.example`,
+  `backend/README.md`, `backend/docker-compose.yml`, `backend/env.compose.example`,
   `backend/app/static/uploads/.gitkeep`, `docs/DEVELOPMENT_CONTEXT.md` и этот файл.
 - Реализовано: закрытый build context; pinned Python 3.11 base; non-root backend;
   healthcheck; единый Dockerfile CMD с миграциями/bootstrap и
@@ -174,5 +174,9 @@ GitHub-коммиты и файлы на личном Mac не синхрони�
   trusted proxy/Nginx; runtime environment виден Docker-администратору;
   production secret manager, backups/restore, сервер и домен остаются release
   blockers. `codex-preflight.sh` не распознаёт Git worktree с `.git`-файлом.
+- Финальное review: root-owned uploads требует перед первым non-root запуском
+  одноразового `chown`/`chmod u+rwX` на точном каталоге после backup; инструкция
+  добавлена в `backend/README.md` и проверена на отдельном volume без изменения
+  checksum существующего файла. Это обязательный шаг обновления, не автоматизирован.
 - Следующее действие: после локального коммита — review/push PR-3 только по
   отдельной команде владельца. К PR-4 автоматически не переходить.
