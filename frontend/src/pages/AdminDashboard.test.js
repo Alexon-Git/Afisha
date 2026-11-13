@@ -6,7 +6,7 @@ import { categoriesApi, eventsApi } from '../services/api';
 
 jest.mock('../services/api', () => ({
   categoriesApi: { getAll: jest.fn() },
-  eventsApi: { getAll: jest.fn(), delete: jest.fn(), create: jest.fn() },
+  eventsApi: { getAll: jest.fn(), delete: jest.fn(), create: jest.fn(), update: jest.fn() },
 }));
 jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }));
 jest.mock('react-hot-toast', () => ({
@@ -121,4 +121,14 @@ test('stale page request cannot replace a refreshed list', async () => {
   await act(async () => stale.resolve(response([item(999)], 999)));
   expect(container.textContent).toContain('Всего мероприятий: 51');
   expect(container.querySelector('[aria-label="Удалить Event 999"]')).toBeNull();
+});
+
+test('removing the image explicitly sends null rather than omitting the update', async () => {
+  rows = [{ ...item(1), image_url: '/static/uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png' }];
+  eventsApi.update.mockResolvedValue({ data: item(1) });
+  await render();
+  await click(container.querySelector('[aria-label="Редактировать Event 1"]'));
+  await click(container.querySelector('[aria-label="Удалить изображение"]'));
+  await act(async () => Simulate.submit(container.querySelector('form')));
+  expect(eventsApi.update).toHaveBeenCalledWith(1, expect.objectContaining({ image_url: null }));
 });

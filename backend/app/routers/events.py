@@ -53,8 +53,8 @@ def create_event(
 ):
     try:
         return event_service.create_event(event, creator_id=current_user.id)
-    except CategoryNotFoundError as exc:
-        raise HTTPException(status_code=422, detail="Category not found") from exc
+    except (CategoryNotFoundError, InvalidImageError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.put("/{event_id}", response_model=EventSchema)
@@ -68,8 +68,8 @@ def update_event(
         return event_service.update_event(event_id, event_update)
     except EventNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Event not found") from exc
-    except CategoryNotFoundError as exc:
-        raise HTTPException(status_code=422, detail="Category not found") from exc
+    except (CategoryNotFoundError, InvalidImageError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.delete("/{event_id}")

@@ -181,7 +181,7 @@ const AdminDashboard: React.FC = () => {
         description: formData.description,
         datetime: new Date(formData.datetime).toISOString(),
         location: formData.location,
-        image_url: formData.image_url || undefined,
+        image_url: formData.image_url || null,
         category_id: formData.category_id ?? null,
         price: normalizedPrice !== null ? Math.max(0, normalizedPrice) : null,
         rating:
@@ -760,6 +760,7 @@ const AdminDashboard: React.FC = () => {
                         />
                         <button
                           type="button"
+                          aria-label="Удалить изображение"
                           onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
                           className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1"
                         >
