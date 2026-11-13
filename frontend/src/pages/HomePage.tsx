@@ -21,42 +21,51 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const city = 'Новосибирск';
 
-  // Загрузка событий по категориям
-  const loadEvents = async () => {
-    setLoading(true);
-    try {
-      const [thisWeekResponse, categoriesResponse] = await Promise.all([
-        eventsApi.getAll(1, 5, { date_from: startDate ? format(startDate, "yyyy-MM-dd") : undefined, date_to: endDate ? format(endDate, "yyyy-MM-dd") : startDate ? format(startDate, "yyyy-MM-dd") : undefined }),
-        categoriesApi.getAll(),
-      ]);
-
-      setThisWeekEvents(thisWeekResponse.data.items ?? []);
-
-      const activeCategories = (categoriesResponse.data ?? []).filter(category => category.is_active);
-      const highlightedCategories = activeCategories.slice(0, 3);
-
-      const sections = await Promise.all(
-        highlightedCategories.map(async (category) => {
-          const response = await eventsApi.getAll(1, 6, { category: category.slug, date_from: startDate ? format(startDate, "yyyy-MM-dd") : undefined, date_to: endDate ? format(endDate, "yyyy-MM-dd") : startDate ? format(startDate, "yyyy-MM-dd") : undefined });
-          return {
-            category,
-            events: response.data.items ?? [],
-          };
-        })
-      );
-
-      setCategorySections(sections);
-    } catch (error) {
-      console.error('Ошибка загрузки событий:', error);
-      setCategorySections([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Загружаем события при монтировании компонента
   useEffect(() => {
+    let active = true;
+    const params = {
+      date_from: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+      date_to: endDate ? format(endDate, 'yyyy-MM-dd') : startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+    };
+    const loadEvents = async () => {
+      setLoading(true);
+      setThisWeekEvents([]);
+      setCategorySections([]);
+      try {
+        const [thisWeekResponse, categoriesResponse] = await Promise.all([
+          eventsApi.getAll(1, 5, params),
+          categoriesApi.getAll(),
+        ]);
+        if (!active) return;
+
+        const activeCategories = (categoriesResponse.data ?? []).filter(category => category.is_active);
+        const highlightedCategories = activeCategories.slice(0, 3);
+
+        const sections = await Promise.all(
+          highlightedCategories.map(async (category) => {
+            const response = await eventsApi.getAll(1, 6, { ...params, category: category.slug });
+            return {
+              category,
+              events: response.data.items ?? [],
+            };
+          })
+        );
+
+        if (!active) return;
+        // Publish both sections together, only for the current date selection.
+        setThisWeekEvents(thisWeekResponse.data.items ?? []);
+        setCategorySections(sections);
+      } catch (error) {
+        if (!active) return;
+        console.error('Ошибка загрузки событий:', error);
+        setThisWeekEvents([]);
+        setCategorySections([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
     loadEvents();
+    return () => { active = false; };
   }, [startDate, endDate]);
 
   const handleEventClick = (event: Event) => {
