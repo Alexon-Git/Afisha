@@ -12,7 +12,37 @@
 `docs/DEVELOPMENT_CONTEXT.md` → `docs/DECISIONS.md` →
 `backend/MIGRATIONS.md`.
 
-## Актуальная передача: PR-4 (2026-11-13)
+## Актуальная передача: PR-5 (2026-11-13)
+
+- PR #20 merged (`99d0800`); PR-5 реализован в отдельном worktree
+  `.worktrees/afisha-pr5`, ветка `fix/event-editor-reliability` от актуальной
+  `origin/master`. C2/C3/C4/C5 разделены логическими коммитами.
+- C2: PUT null для обязательных полей → 422, partial update сохраняет остальные
+  поля; category_id проверяется перед записью, null снимает категорию;
+  диапазоны price/rating/discount согласованы с формой. Реальный HTTP
+  PUT/POST проверен на loopback, без production-БД.
+- C3: server pagination по 50, total/current/previous/next; loading/empty/error
+  и retry; refresh после записи; возврат на доступную страницу после удаления.
+- C4: устаревшие запросы не публикуют результаты/loading; ошибка актуального
+  запроса очищает обе группы; unmount блокирует дальнейшие обновления.
+- C5: очистка после commit и проверки ссылок, только собственные UUID-файлы;
+  FS/lookup failure не ломает успешную мутацию. Shared/exclusive inode flock
+  координирует привязку и cleanup между backend-процессами одного POSIX FS.
+  Недоступная собственная загрузка → 422; symlink/external/legacy не удаляются.
+  Удаление изображения в форме теперь явно отправляет image_url=null.
+- Итог: backend **191 passed**, React **12 passed**, production build и
+  compileall успешны; diff-check чистый. Backend предупреждения — устаревшие
+  интерфейсы зависимостей; build предупреждения — устаревшая browser data.
+  Новых зависимостей, миграций, изменений моделей и TZ-контракта нет.
+- Orphan-файлы сохраняются после незавершённой формы/отложенного cleanup.
+  Будущий GC: отдельная команда с dry-run, grace period, inode lock и повторной
+  проверкой ссылок; детали в DEVELOPMENT_CONTEXT. Windows/новый тип storage
+  потребует пересмотра flock-политики. Реальные uploads не использовались.
+- Следующее действие: review опубликованного PR-5, дождаться решения владельца.
+  Merge/deploy не выполнялись; stash `ff658e9`, старые worktrees, AGENTS,
+  Graphify и локальные настройки сохранены. К следующему PR не переходить.
+
+## Передача PR-4 (исторический снимок до merge)
 
 - PR #19 уже merged; проверенная база PR-4 — `origin/master` `2156f1b`.
   Ветка `fix/event-date-filters`, отдельный worktree `.worktrees/afisha-pr4`.
