@@ -78,3 +78,16 @@ def test_valid_numeric_boundaries(event_api, numbers):
 
 def test_unknown_event_still_returns_404(event_api):
     assert event_api.put("/events/999", json={"title": "New"}).status_code == 404
+
+
+def test_validation_over_real_http(live_event_api):
+    before = live_event_api.get("/events/1").json()
+    for field in ("title", "datetime", "location"):
+        assert live_event_api.put("/events/1", json={field: None}).status_code == 422
+    assert live_event_api.post("/events/", json={**CREATE, "category_id": 999}).status_code == 422
+    assert live_event_api.put("/events/1", json={"title": "Not saved", "category_id": 999}).status_code == 422
+    assert live_event_api.get("/events/1").json() == before
+    response = live_event_api.put("/events/1", json={"description": "Saved", "category_id": None})
+    assert response.status_code == 200
+    assert response.json()["category"] is None
+    assert response.json()["title"] == before["title"]

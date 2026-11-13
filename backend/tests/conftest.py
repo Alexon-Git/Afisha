@@ -1,9 +1,14 @@
 """Disposable event-editing storage; all files and data stay in pytest tmp_path."""
 
 from datetime import datetime
+import socket
+import threading
+import time
 
 from fastapi.testclient import TestClient
 import pytest
+import httpx
+import uvicorn
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -55,3 +60,24 @@ def event_api(event_sessions):
     finally:
         app.dependency_overrides.clear()
         app.dependency_overrides.update(previous)
+
+
+@pytest.fixture
+def live_event_api(event_api):
+    """Same isolated API over a real loopback TCP connection."""
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        server = uvicorn.Server(uvicorn.Config(app, log_level="error", lifespan="off", proxy_headers=False))
+        thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
+        thread.start()
+        try:
+            deadline = time.monotonic() + 10
+            while not server.started and thread.is_alive() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            assert server.started
+            with httpx.Client(base_url=f"http://127.0.0.1:{sock.getsockname()[1]}", timeout=5) as client:
+                yield client
+        finally:
+            server.should_exit = True
+            thread.join(timeout=10)
+            assert not thread.is_alive()
