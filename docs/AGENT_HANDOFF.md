@@ -12,7 +12,20 @@
 `docs/DEVELOPMENT_CONTEXT.md` → `docs/DECISIONS.md` →
 `backend/MIGRATIONS.md`.
 
-## Актуальная передача: PR-5 (2026-11-13)
+## Актуальная передача: исправление C5 в PR #21 (2026-11-14)
+
+- Ветка `fix/event-editor-reliability`, база исправления `b6bcabf`.
+  Нормализатор локальных uploads URL теперь общий для путей, flock и проверки
+  ссылок; допустимые query/fragment указывают на тот же физический файл.
+- Очистка сравнивает нормализованные ссылки и сохраняет файл при любой
+  непустой нераспознанной ссылке. Консервативные orphan-файлы остаются задачей GC.
+  Порядок после commit, защита symlinks и обработка cleanup failures сохранены.
+- Проверено: lifecycle **61 passed**, один полный backend pytest **228 passed**,
+  compileall и diff-check успешны. C2–C4/frontend/модели/миграции/API не менялись.
+- Следующее действие: повторное независимое review PR #21 после fix-коммита
+  и нового CI. Merge/deploy и переход к PR-6 не выполняются.
+
+## Передача PR-5 (2026-11-13, до исправления MAJOR)
 
 - PR #20 merged (`99d0800`); PR-5 реализован в отдельном worktree
   `.worktrees/afisha-pr5`, ветка `fix/event-editor-reliability` от актуальной

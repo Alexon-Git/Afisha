@@ -6,7 +6,9 @@ import threading
 
 import pytest
 from sqlalchemy.exc import OperationalError
+from starlette.staticfiles import StaticFiles
 
+from app.main import app
 from app.models.event import Event
 from app.schemas.event import EventUpdate
 from app.services import event_service as module
@@ -48,15 +50,18 @@ def test_delete_removes_file_after_successful_commit(event_api, event_sessions, 
 
 
 @pytest.mark.parametrize("action", ["delete", "replace", "clear"])
-def test_shared_image_is_retained(event_api, event_sessions, action):
+@pytest.mark.parametrize("suffix", ["", "?v=1", "#preview", "?v=1#preview"])
+def test_shared_image_is_retained(event_api, event_sessions, action, suffix):
     file = attach(event_sessions, shared=True)
+    with event_sessions.begin() as db:
+        db.get(Event, 2).image_url = OLD + suffix
     if action == "delete":
         response = event_api.delete("/events/1")
     else:
         response = event_api.put("/events/1", json={"image_url": NEW if action == "replace" else None})
     assert response.status_code == 200
     assert file.read_bytes() == b"test-only-image"
-    assert event_api.get("/events/2").json()["image_url"] == OLD
+    assert event_api.get("/events/2").json()["image_url"] == OLD + suffix
     assert event_api.delete("/events/2").status_code == 200
     assert not file.exists()
 
@@ -122,8 +127,12 @@ def test_unlink_failure_does_not_report_failed_mutation(event_api, event_session
 
 @pytest.mark.parametrize("url", [
     "https://example.org" + OLD, "//example.org" + OLD, "/tmp/" + Path(OLD).name,
-    "/static/uploads/../" + Path(OLD).name, OLD + "?v=1", OLD.replace("/uploads/", "/uploads/%2e%2e/"),
+    "/static/uploads/../" + Path(OLD).name, OLD.replace("/uploads/", "/uploads/%2e%2e/"),
     "/static/uploads/legacy.png",
+    OLD.replace("a", "%61", 1), OLD.replace("/uploads/", "/uploads/nested/"),
+    OLD + "?bad=%", OLD + "#bad%GG", OLD + "\n", "\t" + OLD,
+    OLD.replace("/uploads/", "/uploads/./"), OLD.replace("/uploads/", "/uploads//"),
+    OLD.replace("/", "\\"),
 ])
 def test_external_and_unowned_paths_are_not_cleaned(event_api, event_sessions, url):
     file = attach(event_sessions, url=url)
@@ -152,15 +161,17 @@ def test_failed_reference_lookup_defers_cleanup(event_api, event_sessions, monke
     assert file.exists()
 
 
-def test_missing_owned_image_returns_422_without_changes(event_api):
+@pytest.mark.parametrize("suffix", ["", "?v=1", "#preview"])
+def test_missing_owned_image_returns_422_without_changes(event_api, suffix):
     before = event_api.get("/events/1").json()
-    assert event_api.put("/events/1", json={"title": "Not saved", "image_url": OLD}).status_code == 422
+    assert event_api.put("/events/1", json={"title": "Not saved", "image_url": OLD + suffix}).status_code == 422
     assert event_api.post("/events/", json={"title": "New", "datetime": "2026-11-15T12:00:00",
-                                          "location": "Novosibirsk", "image_url": OLD}).status_code == 422
+                                          "location": "Novosibirsk", "image_url": OLD + suffix}).status_code == 422
     assert event_api.get("/events/1").json() == before
 
 
-def test_committing_reference_prevents_cleanup(event_api, event_sessions):
+@pytest.mark.parametrize("suffix", ["", "?v=1", "#preview"])
+def test_committing_reference_prevents_cleanup(event_api, event_sessions, suffix):
     file = attach(event_sessions)
     locked, release = threading.Event(), threading.Event()
     failures = []
@@ -169,11 +180,11 @@ def test_committing_reference_prevents_cleanup(event_api, event_sessions):
         try:
             with event_sessions() as db:
                 service = EventService(db)
-                with service._image_reference(OLD):
+                with service._image_reference(OLD + suffix):
                     locked.set()
                     assert release.wait(5)
                     db.add(Event(id=2, title="Concurrent", datetime=datetime(2026, 11, 16),
-                                 location="Novosibirsk", image_url=OLD))
+                                 location="Novosibirsk", image_url=OLD + suffix))
                     db.commit()
         except Exception as exc:
             failures.append(exc)
@@ -188,11 +199,12 @@ def test_committing_reference_prevents_cleanup(event_api, event_sessions):
         release.set()
         thread.join(5)
     assert not thread.is_alive() and not failures
-    assert event_api.get("/events/2").json()["image_url"] == OLD
+    assert event_api.get("/events/2").json()["image_url"] == OLD + suffix
     assert file.exists()
 
 
-def test_reference_opened_before_unlink_cannot_commit_after_unlink(event_sessions, monkeypatch):
+@pytest.mark.parametrize("suffix", ["", "?v=1", "#preview"])
+def test_reference_opened_before_unlink_cannot_commit_after_unlink(event_sessions, monkeypatch, suffix):
     file = attach(event_sessions)
     attempting = threading.Event()
     failures = []
@@ -208,7 +220,7 @@ def test_reference_opened_before_unlink_cannot_commit_after_unlink(event_session
     def writer():
         try:
             with event_sessions() as db:
-                EventService(db).update_event(1, EventUpdate(image_url=NEW))
+                EventService(db).update_event(1, EventUpdate(image_url=NEW + suffix))
         except Exception as exc:
             failures.append(exc)
 
@@ -228,3 +240,44 @@ def test_reference_opened_before_unlink_cannot_commit_after_unlink(event_session
     assert len(failures) == 1 and isinstance(failures[0], InvalidImageError)
     with event_sessions() as db:
         assert db.get(Event, 1).image_url == OLD
+
+
+@pytest.mark.parametrize("suffix", ["?v=1", "#preview"])
+def test_alias_remains_http_accessible_after_canonical_event_deleted(event_api, event_sessions, monkeypatch, suffix):
+    file = attach(event_sessions, shared=True)
+    with event_sessions.begin() as db:
+        db.get(Event, 2).image_url = OLD + suffix
+    static_mount = next(route for route in app.routes if route.path == "/static")
+    monkeypatch.setattr(static_mount, "app", StaticFiles(directory=file.parent.parent))
+    assert event_api.delete("/events/1").status_code == 200
+    image_url = event_api.get("/events/2").json()["image_url"]
+    response = event_api.get(image_url)
+    assert response.status_code == 200
+    assert response.content == b"test-only-image"
+    assert event_api.delete("/events/2").status_code == 200
+    assert event_api.get(image_url).status_code == 404
+
+
+@pytest.mark.parametrize("suffix", ["?v=1", "#preview", "?v=1#preview", "?", "#", "?#", "?q=%23%2F#part%20one"])
+def test_aliases_normalize_to_same_file_and_release_last_reference(event_api, event_sessions, suffix):
+    file = attach(event_sessions)
+    service = EventService(None)
+    assert service._normalize_local_image_url(OLD + suffix) == OLD
+    assert service._owned_image_path(OLD + suffix) == file
+    assert event_api.put("/events/1", json={"image_url": OLD + suffix}).status_code == 200
+    assert file.exists()
+    assert event_api.delete("/events/1").status_code == 200
+    assert not file.exists()
+
+
+@pytest.mark.parametrize("url", [
+    "https://example.org" + OLD, "//example.org" + OLD,
+    OLD.replace("a", "%61", 1), OLD + "?bad=%", "\n" + OLD,
+])
+def test_unresolvable_reference_conservatively_retains_file(event_api, event_sessions, url):
+    file = attach(event_sessions, shared=True)
+    with event_sessions.begin() as db:
+        db.get(Event, 2).image_url = url
+    assert EventService._normalize_local_image_url(url) is None
+    assert event_api.delete("/events/1").status_code == 200
+    assert file.exists()
