@@ -9,7 +9,38 @@
 > и контекст предыдущих решений. Не подменяй им повторное чтение
 > затрагиваемых файлов и текущего GitHub Actions.
 
-## PR-7 — публикация и административное чтение (2026-11-15)
+## PR-10 — отдельный публичный Next.js foundation (2026-11-15)
+
+- База `88349e6`: PR #23 merged, CI master 43731712143 success.
+  Отдельная ветка `feature/public-nextjs-foundation`, `.worktrees/afisha-pr10`.
+- `public/`: Next.js 16.4.6 App Router, React 19.3.1, TS 5.9.3, CSS;
+  Node 24.22.3 в .nvmrc/Docker (base image pinned digest), отдельный lockfile.
+  Главная Server Component показывает состояние связи с API; layout, базовые
+  metadata, 404, безопасный error fallback, собственный `/health`.
+- Server-only клиент использует runtime INTERNAL_API_URL (`http://backend:8039`
+  в Docker); отдельный browser client — build-time NEXT_PUBLIC_API_BASE=/api.
+  Нет прокси/rewrite, admin JWT, DB credentials или обращений к admin/events.
+  Fetch без кеша/credentials/redirects, таймаут 5 секунд; URL/ошибки транспорта
+  не попадают посетителю. Типы соответствуют фактическим FastAPI-схемам.
+- `backend/docker-compose.public.yml` — opt-in расширение. Базовый Compose,
+  volume PostgreSQL, uploads и --no-proxy-headers не изменены. Public non-root,
+  read-only/cap-drop/no-new-privileges, localhost:3001; внутренняя общая сеть.
+- Проверено: npm ci, typecheck, 6 API tests, production build, standalone
+  smoke (home/health/static JS/404/API outage/bundle isolation). Изолированная
+  связка public + backend + PostgreSQL 17: healthy, DNS backend:8039, публичный
+  GET events, safe outage, localhost порты и отсутствие DB credentials в public.
+  Отдельный image-layer .env-canary smoke успешен, production npm audit: 0.
+  Размер arm64 образа около 75 MB. CRA: 33 Jest tests/build; backend: 86
+  целевых publication tests, 88 dependency warnings. Полный backend suite не повторялся.
+- Тестовые Compose контейнеры/сеть/уникальный volume удалены, рабочие данные
+  не использовались. Скрипты проверок и инструкции — `public/README.md`.
+  Preflight запущен, но не распознаёт .git-файл worktree; Git проверен отдельно.
+- PR-8 остаётся BLOCKED; datetime не изменяется и не показывается. Нет каталога,
+  event routes, SEO Event/OG/sitemap/robots/ISR (PR-11), Nginx/CRA routing (PR-12)
+  и общего CI (PR-13). Политика id/slug R11 не выбиралась. Реального production
+  deploy и browser QA нет. Старый frontend/backend и PR-8 worktree не менялись.
+
+## PR-7 — публикация и административное чтение (2026-11-15, до merge)
 
 База `origin/master` — `2ef5326`, PR #22 merged, CI merge success (43659473620).
 Ветка `feature/event-publication-workflow`, отдельный `.worktrees/afisha-pr7`;

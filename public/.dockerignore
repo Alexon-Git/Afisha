@@ -1,0 +1,15 @@
+.env*
+.git
+.next
+node_modules
+tests
+README.md
+*.log
+*.tsbuildinfo
+coverage
+.codex
+.agents
+graphify-out
+**/*.db
+**/*.dump
+**/*.sql

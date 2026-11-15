@@ -1,0 +1,25 @@
+:root { color-scheme: light; --ink: #172e2a; --muted: #52615b; --paper: #f6f5ef; --line: #d7ddd4; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: Arial, sans-serif; line-height: 1.6; }
+a { color: inherit; text-underline-offset: .2em; }
+.shell { width: min(1120px, calc(100% - 48px)); margin-inline: auto; }
+.header { min-height: 104px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--line); }
+.brand { font-size: 23px; font-weight: 700; text-decoration: none; letter-spacing: -.8px; }
+.brand span { display: block; color: var(--muted); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+.badge { padding: 6px 12px; border: 1px solid var(--line); border-radius: 30px; font-size: 12px; }
+.main { padding-block: 80px 96px; }
+.hero { max-width: 840px; }
+.eyebrow, .section-number { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 20px 0 24px; font-family: Georgia, serif; font-size: clamp(38px, 6.8vw, 80px); font-weight: 400; line-height: 1.08; letter-spacing: -2px; }
+.intro { max-width: 600px; font-size: 19px; color: var(--muted); }
+.status-card { margin-top: 64px; padding: 32px; background: #fff; border: 1px solid var(--line); border-radius: 8px; max-width: 760px; }
+h2 { margin: 12px 0; font-size: 23px; line-height: 1.3; }
+.status-card p { color: var(--muted); }
+.status-card .connection { margin: 24px 0 0; padding-top: 16px; border-top: 1px solid var(--line); color: #804615; font-size: 14px; }
+.status-card .online { color: #226044; }
+.footer { border-top: 1px solid var(--line); padding-block: 24px; font-size: 13px; color: var(--muted); }
+button { padding: 10px 18px; color: #fff; background: var(--ink); border: 0; border-radius: 4px; cursor: pointer; font: inherit; }
+:focus-visible { outline: 3px solid #bf680e; outline-offset: 4px; }
+.skip-link { position: absolute; left: 16px; top: -100px; padding: 8px; background: white; }
+.skip-link:focus { top: 8px; }
+@media (max-width: 600px) { .shell { width: calc(100% - 32px); } .header { min-height: 88px; gap: 12px; } .badge { max-width: 124px; text-align: center; } .main { padding-block: 48px; } .status-card { margin-top: 40px; padding: 24px; } }
