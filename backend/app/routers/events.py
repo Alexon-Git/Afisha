@@ -7,7 +7,7 @@ from ..dependencies import get_event_service
 from ..models.user import User
 from ..schemas.event import Event as EventSchema, EventCreate, EventUpdate, PaginatedEvents
 from ..services.event_service import EventService
-from ..services.exceptions import EventNotFoundError, InvalidDateFilterError, InvalidImageError
+from ..services.exceptions import CategoryNotFoundError, EventNotFoundError, InvalidDateFilterError, InvalidImageError
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -51,7 +51,10 @@ def create_event(
     current_user: User = Depends(get_current_admin_user),
     event_service: EventService = Depends(get_event_service),
 ):
-    return event_service.create_event(event, creator_id=current_user.id)
+    try:
+        return event_service.create_event(event, creator_id=current_user.id)
+    except (CategoryNotFoundError, InvalidImageError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.put("/{event_id}", response_model=EventSchema)
@@ -65,6 +68,8 @@ def update_event(
         return event_service.update_event(event_id, event_update)
     except EventNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Event not found") from exc
+    except (CategoryNotFoundError, InvalidImageError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.delete("/{event_id}")

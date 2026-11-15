@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   categoriesApi,
@@ -25,6 +25,11 @@ const AdminDashboard: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [eventsVersion, setEventsVersion] = useState(0);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -60,23 +65,9 @@ const AdminDashboard: React.FC = () => {
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
 
-  useEffect(() => {
-    fetchEvents();
-    fetchCategories();
-  }, []);
+  const fetchEvents = () => setEventsVersion(version => version + 1);
 
-  const fetchEvents = async () => {
-    try {
-      const response = await eventsApi.getAll(1, 50);
-      setEvents(response.data.items ?? []);
-    } catch (error) {
-      toast.error('Ошибка при загрузке мероприятий');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     setCategoriesLoading(true);
     try {
       const response = await categoriesApi.getAll(true);
@@ -86,7 +77,41 @@ const AdminDashboard: React.FC = () => {
     } finally {
       setCategoriesLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setEventsError(null);
+    setEvents([]);
+    const load = async () => {
+      try {
+        const { data } = await eventsApi.getAll(page, 50);
+        if (!active) return;
+        setTotalItems(data.total_items);
+        setTotalPages(data.total_pages);
+        const lastPage = Math.max(1, data.total_pages);
+        if (page > lastPage) {
+          setPage(lastPage);
+          return;
+        }
+        setEvents(data.items ?? []);
+      } catch (error) {
+        if (!active) return;
+        setEventsError('Ошибка при загрузке мероприятий');
+        setTotalItems(0);
+        setTotalPages(0);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, [page, eventsVersion]);
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -156,7 +181,7 @@ const AdminDashboard: React.FC = () => {
         description: formData.description,
         datetime: new Date(formData.datetime).toISOString(),
         location: formData.location,
-        image_url: formData.image_url || undefined,
+        image_url: formData.image_url || null,
         category_id: formData.category_id ?? null,
         price: normalizedPrice !== null ? Math.max(0, normalizedPrice) : null,
         rating:
@@ -178,7 +203,11 @@ const AdminDashboard: React.FC = () => {
         toast.success('Мероприятие создано');
       }
       setShowModal(false);
-      fetchEvents();
+      if (!editingEvent && page !== 1) {
+        setPage(1);
+      } else {
+        fetchEvents();
+      }
     } catch (error) {
       toast.error('Ошибка при сохранении мероприятия');
     }
@@ -269,14 +298,6 @@ const AdminDashboard: React.FC = () => {
       setCategorySaving(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -411,7 +432,17 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-            {events.length === 0 ? (
+            {loading ? (
+              <div role="status" className="flex items-center justify-center py-12 space-x-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary-600" />
+                <span>Загрузка мероприятий...</span>
+              </div>
+            ) : eventsError ? (
+              <div role="alert" className="text-center py-12">
+                <p className="text-red-600 mb-4">{eventsError}</p>
+                <button onClick={fetchEvents} className="btn-secondary">Повторить загрузку</button>
+              </div>
+            ) : events.length === 0 ? (
               <div className="text-center py-12">
                 <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Нет мероприятий</h3>
@@ -472,12 +503,14 @@ const AdminDashboard: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
                             <button
+                              aria-label={`Редактировать ${event.title}`}
                               onClick={() => handleEditEvent(event)}
                               className="text-primary-600 hover:text-primary-900"
                             >
                               <Edit className="h-4 w-4" />
                             </button>
                             <button
+                              aria-label={`Удалить ${event.title}`}
                               onClick={() => handleDeleteEvent(event.id)}
                               className="text-red-600 hover:text-red-900"
                             >
@@ -492,6 +525,19 @@ const AdminDashboard: React.FC = () => {
               </div>
             )}
           </div>
+          {!eventsError && (
+            <nav aria-label="Страницы мероприятий" className="flex items-center justify-between mt-4 gap-4">
+              <p className="text-sm text-gray-600">
+                Страница {page} из {Math.max(1, totalPages)} · Всего мероприятий: {totalItems}
+              </p>
+              <div className="flex space-x-2">
+                <button className="btn-secondary disabled:opacity-50" disabled={loading || page <= 1}
+                  onClick={() => setPage(current => current - 1)}>Предыдущая</button>
+                <button className="btn-secondary disabled:opacity-50" disabled={loading || page >= totalPages}
+                  onClick={() => setPage(current => current + 1)}>Следующая</button>
+              </div>
+            </nav>
+          )}
         </section>
       </main>
 
@@ -714,6 +760,7 @@ const AdminDashboard: React.FC = () => {
                         />
                         <button
                           type="button"
+                          aria-label="Удалить изображение"
                           onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
                           className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1"
                         >

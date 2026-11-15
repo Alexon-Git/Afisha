@@ -93,7 +93,7 @@ export interface EventCreate {
   description?: string;
   datetime: string;
   location: string;
-  image_url?: string;
+  image_url?: string | null;
   category_id?: number | null;
   price?: number | null;
   rating?: number | null;
@@ -106,7 +106,7 @@ export interface EventUpdate {
   description?: string;
   datetime?: string;
   location?: string;
-  image_url?: string;
+  image_url?: string | null;
   category_id?: number | null;
   price?: number | null;
   rating?: number | null;
