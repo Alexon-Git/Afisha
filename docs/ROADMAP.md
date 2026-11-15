@@ -29,8 +29,8 @@
 
 ## Этап 1. Модель данных и публикация — IN PROGRESS
 
-- [ ] **PR-6. IN REVIEW** — `feature/event-organizers-and-statuses`: Organizer, nullable `organizer_id/event_url/source/verified_at`, два статуса с defaults и CHECK, миграция `0003_event_metadata`. Backend 296 passed; PostgreSQL 17.11: чистая/0002→0003 миграция и сохранность данных проверены. Merge не выполнялся. **Не выпускать отдельно до PR-7: публичная фильтрация черновиков пока отсутствует.**
-- [ ] **PR-7.** Публикация: проверка обязательных полей на backend при публикации и при правке опубликованного; публичный API отдаёт только опубликованное.
+- [x] **PR-6. DONE** — PR #22 merged (`2ef5326`), CI merge success: Organizer, nullable метаданные, два статуса и миграция 0003. Backend 296 passed; миграции на SQLite/PostgreSQL 17.11 проверены. До выпуска требуется PR-7.
+- [ ] **PR-7. IN REVIEW** — `feature/event-publication-workflow`: public/admin чтение, явный verify, защищённые переходы и валидация публикации/правок; критичные изменения только через draft и повторную проверку. Backend 383 passed, React 13 passed/build OK, PG concurrency OK. Merge/deploy не выполнялись. UI/уведомления/SEO и timezone остаются PR-9/PR-11/PR-8.
 - [ ] Цена в трёх состояниях (бесплатно / известная / не указана) — после решения R7.
 - [x] Решение R6: два независимых статуса и их значения утверждены (D-020); реализация в PR-6 ожидает merge.
 

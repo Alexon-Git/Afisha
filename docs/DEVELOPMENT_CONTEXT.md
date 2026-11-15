@@ -9,7 +9,60 @@
 > и контекст предыдущих решений. Не подменяй им повторное чтение
 > затрагиваемых файлов и текущего GitHub Actions.
 
-## PR-6 — организаторы, метаданные и R6 (2026-11-15)
+## PR-7 — публикация и административное чтение (2026-11-15)
+
+База `origin/master` — `2ef5326`, PR #22 merged, CI merge success (43659473620).
+Ветка `feature/event-publication-workflow`, отдельный `.worktrees/afisha-pr7`;
+реализация подготовлена к review, merge/deploy не выполнялись.
+
+- Публичные GET `/events/` и `/events/{id}` видят только published. Draft/archive
+  по ID дают одинаковый 404 с несуществующим ID. Фильтр включён в общий WHERE
+  до OFFSET/LIMIT/COUNT; cancelled/postponed published остаются доступны.
+  Query-параметров обхода видимости нет, токен admin не расширяет публичную выдачу.
+- GET `/admin/events/` и `/{id}` требуют действительного JWT пользователя с
+  is_admin в БД, возвращают все статусы с прежней пагинацией/фильтрами. Админка
+  использует getAdminAll; публичный getAll и HomePage не менялись.
+- POST `/admin/events/{id}/verify` ставит серверный UTC verified_at; клиентский
+  timestamp не используется. Повторный вызов обновляет его. В модели нет
+  verified_by/истории проверок, поэтому аудит проверяющего не заявляется.
+  SQLite naive представление именно verified_at сериализуется как UTC;
+  это не утверждение о зоне старого Event.datetime и не его преобразование.
+- PATCH `/admin/events/{id}/publication` принимает publication_status;
+  `/status` — event_status. Обычные POST/PUT по-прежнему отвергают эти поля
+  и verified_at. Переход в published требует непустых title/location,
+  datetime, существующего Organizer с name и непустым designated public_contact,
+  безопасных event_url/source и явного verified_at. Online URL отдельным полем
+  в модели не предусмотрен: location остаётся обязательной строкой.
+  Контакт организатора всё ещё не выдаётся автоматически публично.
+- Критичные поля: title, datetime, location, organizer_id, event_url, source.
+  Их фактическое изменение у published отклоняется целиком с 422 и перечнем
+  полей. Безопасный путь: draft → правка (сбрасывает verified_at) → verify →
+  published. Изменение event_status использует такой же путь. Неизменившиеся
+  значения и некритичные правки не сбрасывают проверку, но любое изменение
+  published проходит проверку итогового обязательного минимума до ORM mutation.
+  Автоматического TTL verified_at нет: срок проверки владельцем не утверждён.
+- Мутации одного события сериализуются FOR UPDATE на PostgreSQL с перечитыванием
+  identity map; SQLite резервирует BEGIN IMMEDIATE до чтения состояния.
+  Organizer при публикации удерживается FOR SHARE до commit. Post-commit
+  cleanup изображений, их нормализация/ссылки/flock остаются общими для всех статусов.
+- Проверки: полный backend **383 passed**, 327 dependency warnings; **87**
+  целевых HTTP/транзакционных тестов публикации; реальная PostgreSQL 17 гонка
+  правки/публикации со stale ORM state — passed. SQLite гонка входит в suite.
+  Использован отдельный Compose PostgreSQL 17.11; созданные контейнер/сеть/volume
+  удалены после проверки, существующие данные не затрагивались.
+  React/Jest **13 passed**, npm ci и production build успешны. Один сбой нового
+  Axios mock (Jest resetMocks) исправлен в тесте; приложение собрано успешно.
+  Compileall и diff-check успешны. Модели, миграции, зависимости и JWT не менялись.
+
+Ограничения: naive Event.datetime остаётся PR-8; полноценный UI verify/status и
+формы организаторов/метаданных — PR-9; видимые уведомления об отмене, sitemap,
+SEO и Next.js — PR-11. Скрытый Event не делает его файл приватным: прямой
+static/uploads URL может отвечать 200, что отдельно подтверждено HTTP-тестом.
+Будущий Organizer CRUD должен учитывать опубликованные ссылки; прямые SQL-правки
+в обход сервисов не являются защищённым редакторским workflow. Production-копия
+данных и production routing не проверялись; браузерная QA не запускалась.
+
+## PR-6 — организаторы, метаданные и R6 (2026-11-15, до PR-7)
 
 База `origin/master` — `d4c5b23`, PR #21 merged; CI merge-коммита
 43658041385 success. Ветка `feature/event-organizers-and-statuses`, отдельный
