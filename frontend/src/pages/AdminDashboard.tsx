@@ -90,7 +90,7 @@ const AdminDashboard: React.FC = () => {
     setEvents([]);
     const load = async () => {
       try {
-        const { data } = await eventsApi.getAll(page, 50);
+        const { data } = await eventsApi.getAdminAll(page, 50);
         if (!active) return;
         setTotalItems(data.total_items);
         setTotalPages(data.total_pages);

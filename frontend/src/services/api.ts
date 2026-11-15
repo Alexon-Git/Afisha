@@ -131,6 +131,9 @@ export interface TokenResponse {
 }
 
 export const eventsApi = {
+  getAdminAll: (page = 1, limit = 50) =>
+    api.get<PaginatedEventsResponse>('/admin/events/', { params: { page, limit } }),
+  getAdminById: (id: number) => api.get<Event>(`/admin/events/${id}`),
   getAll: (
     page = 1,
     limit = 10,

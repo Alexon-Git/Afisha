@@ -6,7 +6,7 @@ import { categoriesApi, eventsApi } from '../services/api';
 
 jest.mock('../services/api', () => ({
   categoriesApi: { getAll: jest.fn() },
-  eventsApi: { getAll: jest.fn(), delete: jest.fn(), create: jest.fn(), update: jest.fn() },
+  eventsApi: { getAll: jest.fn(), getAdminAll: jest.fn(), delete: jest.fn(), create: jest.fn(), update: jest.fn() },
 }));
 jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }));
 jest.mock('react-hot-toast', () => ({
@@ -32,7 +32,7 @@ beforeEach(() => {
   root = createRoot(container);
   rows = Array.from({ length: 51 }, (_, i) => item(i + 1));
   categoriesApi.getAll.mockResolvedValue({ data: [] });
-  eventsApi.getAll.mockImplementation((page, limit) => Promise.resolve(response(
+  eventsApi.getAdminAll.mockImplementation((page, limit) => Promise.resolve(response(
     rows.slice((page - 1) * limit, page * limit), rows.length, page,
   )));
 });
@@ -47,16 +47,17 @@ const click = node => act(async () => node.dispatchEvent(new MouseEvent('click',
 
 test('uses server pages and displays totals without loading the whole catalog', async () => {
   await render();
+  expect(eventsApi.getAll).not.toHaveBeenCalled();
   expect(container.textContent).toContain('Всего мероприятий: 51');
   expect(button('Предыдущая').disabled).toBe(true);
   expect(container.querySelectorAll('button[aria-label^="Удалить Event"]')).toHaveLength(50);
   await click(button('Следующая'));
-  expect(eventsApi.getAll).toHaveBeenLastCalledWith(2, 50);
+  expect(eventsApi.getAdminAll).toHaveBeenLastCalledWith(2, 50);
   expect(container.textContent).toContain('Страница 2 из 2');
   expect(container.querySelectorAll('button[aria-label^="Удалить Event"]')).toHaveLength(1);
   expect(button('Следующая').disabled).toBe(true);
   await click(button('Предыдущая'));
-  expect(eventsApi.getAll).toHaveBeenLastCalledWith(1, 50);
+  expect(eventsApi.getAdminAll).toHaveBeenLastCalledWith(1, 50);
 });
 
 test('deleting the last event on a page returns to an existing page', async () => {
@@ -68,7 +69,7 @@ test('deleting the last event on a page returns to an existing page', async () =
   expect(eventsApi.delete).toHaveBeenCalledWith(51);
   expect(container.textContent).toContain('Страница 1 из 1');
   expect(container.textContent).toContain('Всего мероприятий: 50');
-  expect(eventsApi.getAll).toHaveBeenLastCalledWith(1, 50);
+  expect(eventsApi.getAdminAll).toHaveBeenLastCalledWith(1, 50);
 });
 
 test('creating an event from page two refreshes page one and the total', async () => {
@@ -84,7 +85,7 @@ test('creating an event from page two refreshes page one and the total', async (
   });
   await act(async () => Simulate.submit(form));
   expect(eventsApi.create).toHaveBeenCalledTimes(1);
-  expect(eventsApi.getAll).toHaveBeenLastCalledWith(1, 50);
+  expect(eventsApi.getAdminAll).toHaveBeenLastCalledWith(1, 50);
   expect(container.textContent).toContain('Страница 1 из 2');
   expect(container.textContent).toContain('Всего мероприятий: 52');
   expect(container.querySelector('form')).toBeNull();
@@ -92,7 +93,7 @@ test('creating an event from page two refreshes page one and the total', async (
 
 test('shows loading, error with retry, and empty states', async () => {
   const request = deferred();
-  eventsApi.getAll.mockReturnValueOnce(request.promise);
+  eventsApi.getAdminAll.mockReturnValueOnce(request.promise);
   await render();
   expect(container.textContent).toContain('Загрузка мероприятий...');
   expect(button('Следующая').disabled).toBe(true);
@@ -106,7 +107,7 @@ test('shows loading, error with retry, and empty states', async () => {
 
 test('stale page request cannot replace a refreshed list', async () => {
   const stale = deferred();
-  eventsApi.getAll.mockReturnValueOnce(stale.promise);
+  eventsApi.getAdminAll.mockReturnValueOnce(stale.promise);
   await render();
   // A successful creation triggers a refresh even while the initial list loads.
   eventsApi.create.mockResolvedValue({ data: item(52) });
