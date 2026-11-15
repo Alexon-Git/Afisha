@@ -1,7 +1,8 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from .event_status import EventStatus, PublicationStatus
 
 
 class Event(Base):
@@ -19,7 +20,24 @@ class Event(Base):
     rating = Column(Float, nullable=True)
     discount = Column(Integer, nullable=True)
     payment_url = Column(String, nullable=True)
+    organizer_id = Column(Integer, ForeignKey("organizers.id", name="fk_events_organizer_id_organizers", ondelete="SET NULL"), nullable=True, index=True)
+    event_url = Column(String, nullable=True)
+    source = Column(String, nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    publication_status = Column(
+        Enum(PublicationStatus, values_callable=lambda cls: [item.value for item in cls],
+             native_enum=False, create_constraint=True, validate_strings=True,
+             name="ck_events_publication_status"),
+        nullable=False, default=PublicationStatus.DRAFT, server_default="draft",
+    )
+    event_status = Column(
+        Enum(EventStatus, values_callable=lambda cls: [item.value for item in cls],
+             native_enum=False, create_constraint=True, validate_strings=True,
+             name="ck_events_event_status"),
+        nullable=False, default=EventStatus.SCHEDULED, server_default="scheduled",
+    )
 
     # Связи
     creator = relationship("User", back_populates="events")
     category = relationship("Category", back_populates="events")
+    organizer = relationship("Organizer", back_populates="events")

@@ -12,7 +12,30 @@
 `docs/DEVELOPMENT_CONTEXT.md` → `docs/DECISIONS.md` →
 `backend/MIGRATIONS.md`.
 
-## Актуальная передача: исправление C5 в PR #21 (2026-11-14)
+## Актуальная передача: PR-6 (2026-11-15)
+
+- PR #21 merged (`d4c5b23`), CI master после merge success (43658041385).
+  PR-6 в `feature/event-organizers-and-statuses`, `.worktrees/afisha-pr6`.
+- Добавлены Organizer, Event.organizer_id/event_url/source/verified_at и два
+  независимых статуса (D-020/R6). Миграция 0003 от 0002; старые события draft,
+  новые nullable сведения NULL. datetime и payment_url не конвертируются.
+- Организатор не удаляет события: FK SET NULL + ORM-снятие связи.
+  Контакт не включается в публичные ответы; Organizer CRUD/UI не добавлены.
+- Общий POST/PUT принимает новые URL и organizer_id с валидацией, но отвергает
+  verified_at/publication_status/event_status (422); автопроверки/публикации нет.
+- **296 backend tests passed**, compileall/diff-check OK. SQLite и реальные
+  HTTP API проверены; PostgreSQL 17.11 — изолированные миграционные проверки,
+  сохранность старых данных, defaults/FK/CHECK, schema equivalence, ORM/сервис.
+  Реальная legacy/production-копия не проверена. Frontend/dependencies не менялись.
+- **Не выпускать PR-6 отдельно:** публичные draft пока видны. В PR-7 остаются
+  переходы и права, видимость draft/archive, явный verified_at, проверка
+  публикации/правок опубликованного, поведение отмен/переносов и публичный контакт.
+  Downgrade удаляет новые данные; только после backup/отдельного плана.
+- Следующее действие: независимое review PR-6 и решение владельца о merge.
+  Merge/deploy и переход к PR-7 не выполнялись. Старые worktrees, stash ff658e9,
+  AGENTS и локальные настройки не затронуты.
+
+## Передача исправления C5 в PR #21 (2026-11-14, до merge)
 
 - Ветка `fix/event-editor-reliability`, база исправления `b6bcabf`.
   Нормализатор локальных uploads URL теперь общий для путей, flock и проверки

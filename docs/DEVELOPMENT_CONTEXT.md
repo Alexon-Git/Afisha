@@ -9,7 +9,53 @@
 > и контекст предыдущих решений. Не подменяй им повторное чтение
 > затрагиваемых файлов и текущего GitHub Actions.
 
-## PR #21 — исправление MAJOR в C5 (2026-11-14)
+## PR-6 — организаторы, метаданные и R6 (2026-11-15)
+
+База `origin/master` — `d4c5b23`, PR #21 merged; CI merge-коммита
+43658041385 success. Ветка `feature/event-organizers-and-statuses`, отдельный
+worktree `.worktrees/afisha-pr6`; реализация готова к review, не merged/deployed.
+
+- Organizer: обязательное name, nullable description/website_url/public_contact,
+  created_at/updated_at; связь один-ко-многим. Удаление организатора снимает
+  organizer_id, не удаляя события (ORM и FK ON DELETE SET NULL).
+- Event: nullable organizer_id с индексом/FK, event_url/source, verified_at;
+  publication_status draft/published/archived, event_status
+  scheduled/cancelled/postponed (D-020), default draft/scheduled.
+  Проверки значений согласованы в Python и DB, без native PostgreSQL enum.
+- API: старые запросы совместимы; новые ссылки только абсолютные http/https
+  без credentials/whitespace/backslashes, organizer_id проверяется до записи
+  (422 при ошибке; FOR KEY SHARE на PostgreSQL защищает назначаемую строку).
+  Статусы и verified_at доступны только в ответах; передача любого из них
+  через общий POST/PUT, даже null/default, отклоняется с 422.
+  verified_at не выставляется/не обновляется автоматически. Контакт организатора
+  не выдаётся публично; CRUD/каталог организаторов пока не добавлен.
+- Alembic head: 0003_event_metadata. Новые поля nullable, статусы NOT NULL
+  с безопасными server defaults; существующие записи draft/scheduled,
+  verified_at NULL. Старые datetime/payment_url и остальные данные не меняются.
+  SQLite использует batch recreation; PostgreSQL — аддитивный ALTER TABLE.
+- Итог: Python 3.11, **296 passed**, 241 предупреждение зависимостей;
+  compileall и diff-check успешны. Новый coverage: модели/HTTP/API protections,
+  статусы/URL, сохранность записей и сравнение схемы с SQLAlchemy.
+  Один обнаруженный сбой SQLite с выключенным FK устранён ORM-снятием связей;
+  финальный полный прогон успешен. Frontend и зависимости не менялись,
+  npm build не повторялся. Preflight всё ещё не распознаёт .git-файл worktree.
+- PostgreSQL **17.11**: отдельный Compose-проект afisha_pr6_review_20261115,
+  динамический localhost-порт, собственный volume и credentials. Три теста
+  миграций проверили чистую установку, upgrade с 0002, defaults, сохранность
+  users/categories/events/login_attempts, FK/CHECK и schema/model equivalence;
+  ORM/сервис также проверены на реальной мигрированной PostgreSQL.
+  Созданные тестовые контейнер, сеть и volume после проверки удалены;
+  существующие volumes и данные не затрагивались.
+  Копия production/старой неверсированной БД не предоставлена и не проверена.
+
+**Release-блокер:** PR-6 нельзя отдельно выкатывать в production: публичный API
+ещё возвращает draft для совместимости. PR-7 должен реализовать видимость,
+права и переходы, проверку обязательных сведений при публикации/правках,
+явную редакторскую проверку и поведение archived/cancelled/postponed.
+PR-9 добавит UI организаторов/метаданных. Переход существующего datetime
+в UTC/timestamptz остаётся PR-8; destructive downgrade 0003 описан в MIGRATIONS.
+
+## PR #21 — исправление MAJOR в C5 (2026-11-14, до merge)
 
 Поверх `b6bcabf`: единая строгая нормализация локального UUID-пути с
 допустимыми ASCII query/fragment; путь не декодируется, внешние/вложенные/
