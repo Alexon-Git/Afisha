@@ -50,7 +50,7 @@ def catalog(tmp_path, monkeypatch):
             ("year-after", "2027-01-02T00:00:00", category),
         ]:
             db.add(Event(title=title, datetime=datetime.fromisoformat(moment),
-                         location="Novosibirsk", category_id=group.id))
+                         location="Novosibirsk", category_id=group.id, publication_status="published"))
     try:
         yield sessions
     finally:

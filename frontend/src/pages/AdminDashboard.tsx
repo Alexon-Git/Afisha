@@ -7,6 +7,7 @@ import {
   CategoryUpdatePayload,
   Event,
   EventCreate,
+  EventUpdate,
   eventsApi,
 } from '../services/api';
 import {
@@ -48,6 +49,7 @@ const AdminDashboard: React.FC = () => {
     payment_url: null,
   });
   const [formData, setFormData] = useState<EventCreate>(createEmptyEventForm());
+  const [originalFormData, setOriginalFormData] = useState<EventCreate | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [categoryFormData, setCategoryFormData] = useState<CategoryCreatePayload>({
     name: '',
@@ -90,7 +92,7 @@ const AdminDashboard: React.FC = () => {
     setEvents([]);
     const load = async () => {
       try {
-        const { data } = await eventsApi.getAll(page, 50);
+        const { data } = await eventsApi.getAdminAll(page, 50);
         if (!active) return;
         setTotalItems(data.total_items);
         setTotalPages(data.total_pages);
@@ -120,13 +122,14 @@ const AdminDashboard: React.FC = () => {
 
   const handleCreateEvent = () => {
     setEditingEvent(null);
+    setOriginalFormData(null);
     setFormData(createEmptyEventForm());
     setShowModal(true);
   };
 
   const handleEditEvent = (event: Event) => {
     setEditingEvent(event);
-    setFormData({
+    const initialForm: EventCreate = {
       title: event.title,
       description: event.description || '',
       datetime: new Date(event.datetime).toISOString().slice(0, 16),
@@ -137,7 +140,9 @@ const AdminDashboard: React.FC = () => {
       rating: event.rating ?? null,
       discount: event.discount ?? null,
       payment_url: event.payment_url ?? null,
-    });
+    };
+    setFormData(initialForm);
+    setOriginalFormData(initialForm);
     setShowModal(true);
   };
 
@@ -172,33 +177,53 @@ const AdminDashboard: React.FC = () => {
       const normalizeNumber = (value: number | null | undefined) =>
         value !== null && value !== undefined && !Number.isNaN(value) ? value : null;
 
-      const normalizedPrice = normalizeNumber(formData.price);
-      const normalizedRating = normalizeNumber(formData.rating);
-      const normalizedDiscount = normalizeNumber(formData.discount);
+      const normalizeFields = (data: EventCreate): Omit<EventCreate, 'datetime'> => {
+        const normalizedPrice = normalizeNumber(data.price);
+        const normalizedRating = normalizeNumber(data.rating);
+        const normalizedDiscount = normalizeNumber(data.discount);
 
-      const payload: EventCreate = {
-        title: formData.title,
-        description: formData.description,
-        datetime: new Date(formData.datetime).toISOString(),
-        location: formData.location,
-        image_url: formData.image_url || null,
-        category_id: formData.category_id ?? null,
-        price: normalizedPrice !== null ? Math.max(0, normalizedPrice) : null,
-        rating:
-          normalizedRating !== null
-            ? Math.round(Math.min(10, Math.max(0, normalizedRating)) * 10) / 10
-            : null,
-        discount:
-          normalizedDiscount !== null
-            ? Math.round(Math.min(100, Math.max(0, normalizedDiscount)))
-            : null,
-        payment_url: formData.payment_url ? formData.payment_url.trim() || null : null,
+        return {
+          title: data.title,
+          description: data.description || '',
+          location: data.location,
+          image_url: data.image_url || null,
+          category_id: data.category_id ?? null,
+          price: normalizedPrice !== null ? Math.max(0, normalizedPrice) : null,
+          rating:
+            normalizedRating !== null
+              ? Math.round(Math.min(10, Math.max(0, normalizedRating)) * 10) / 10
+              : null,
+          discount:
+            normalizedDiscount !== null
+              ? Math.round(Math.min(100, Math.max(0, normalizedDiscount)))
+              : null,
+          payment_url: data.payment_url ? data.payment_url.trim() || null : null,
+        };
       };
 
-      if (editingEvent) {
+      const fields = normalizeFields(formData);
+      if (editingEvent && originalFormData) {
+        const original = normalizeFields(originalFormData);
+        const payload: EventUpdate = Object.fromEntries(
+          Object.entries(fields).filter(([key, value]) =>
+            value !== original[key as keyof typeof original])
+        );
+        // Compare form values before any timezone conversion. An untouched date
+        // must never become an aware critical-field update of a naive DB value.
+        if (formData.datetime !== originalFormData.datetime) {
+          payload.datetime = new Date(formData.datetime).toISOString();
+        }
+        if (Object.keys(payload).length === 0) {
+          setShowModal(false);
+          return;
+        }
         await eventsApi.update(editingEvent.id, payload);
         toast.success('Мероприятие обновлено');
       } else {
+        const payload: EventCreate = {
+          ...fields,
+          datetime: new Date(formData.datetime).toISOString(),
+        };
         await eventsApi.create(payload);
         toast.success('Мероприятие создано');
       }

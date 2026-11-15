@@ -8,7 +8,7 @@ import fcntl
 import os
 import re
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -23,9 +23,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..models.category import Category
 from ..models.event import Event
+from ..models.event_status import EventStatus, PublicationStatus
 from ..models.organizer import Organizer
-from ..schemas.event import EventCreate, EventUpdate
-from .exceptions import CategoryNotFoundError, EventNotFoundError, InvalidDateFilterError, InvalidImageError, OrganizerNotFoundError
+from ..schemas.event import EventCreate, EventUpdate, validate_http_url
+from .exceptions import CategoryNotFoundError, EventNotFoundError, InvalidDateFilterError, InvalidImageError, OrganizerNotFoundError, PublicationValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class EventService:
     _IMAGE_EXTENSIONS = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
     _BASE_DIR = Path(__file__).resolve().parents[1]
     _UPLOAD_DIR = _BASE_DIR / "static" / "uploads"
+    _CRITICAL_FIELDS = {"title", "datetime", "location", "organizer_id", "event_url", "source"}
 
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -53,6 +55,7 @@ class EventService:
         date_to: Optional[str] = None,
         category: Optional[str] = None,
         sort: Optional[str] = "asc",
+        include_unpublished: bool = False,
     ) -> Dict[str, object]:
         """Return paginated events according to provided filters."""
 
@@ -61,7 +64,7 @@ class EventService:
 
         # Validate before category lookup: an unknown category must not hide bad dates.
         start, end = self._resolve_date_filters(date=date, date_from=date_from, date_to=date_to)
-        filters = []
+        filters = [] if include_unpublished else [Event.publication_status == PublicationStatus.PUBLISHED]
         if category:
             category_obj = self._session.scalar(
                 select(Category).where(Category.slug == category, Category.is_active.is_(True))
@@ -107,8 +110,10 @@ class EventService:
             "total_pages": total_pages,
         }
 
-    def get_event(self, event_id: int) -> Event:
+    def get_event(self, event_id: int, *, include_unpublished: bool = False) -> Event:
         stmt = select(Event).options(joinedload(Event.category)).where(Event.id == event_id)
+        if not include_unpublished:
+            stmt = stmt.where(Event.publication_status == PublicationStatus.PUBLISHED)
         event = self._session.scalar(stmt)
         if event is None:
             raise EventNotFoundError(f"Event with id={event_id} does not exist")
@@ -127,15 +132,20 @@ class EventService:
         return db_event
 
     def update_event(self, event_id: int, event_update: EventUpdate) -> Event:
-        db_event = self._session.get(Event, event_id)
-        if db_event is None:
-            raise EventNotFoundError(f"Event with id={event_id} does not exist")
-
+        db_event = self._locked_event(event_id)
         update_data = event_update.model_dump(exclude_unset=True)
         if "category_id" in update_data:
             self._validate_category(update_data["category_id"])
         if "organizer_id" in update_data:
             self._validate_organizer(update_data["organizer_id"])
+        critical_changes = sorted(field for field in self._CRITICAL_FIELDS.intersection(update_data)
+                                  if update_data[field] != getattr(db_event, field))
+        if db_event.publication_status == PublicationStatus.PUBLISHED:
+            if critical_changes:
+                raise PublicationValidationError({field: "Move to draft, edit, verify and republish" for field in critical_changes})
+            self._validate_publication(db_event, update_data)
+        if critical_changes:
+            update_data["verified_at"] = None
         old_image_url = db_event.image_url
         new_image_url = update_data.get("image_url", old_image_url)
         with self._image_reference(new_image_url if new_image_url != old_image_url else None):
@@ -164,15 +174,87 @@ class EventService:
                 raise OrganizerNotFoundError("Organizer not found")
 
     def delete_event(self, event_id: int) -> None:
-        db_event = self._session.get(Event, event_id)
-        if db_event is None:
-            raise EventNotFoundError(f"Event with id={event_id} does not exist")
+        db_event = self._locked_event(event_id)
 
         image_url = db_event.image_url
         self._session.delete(db_event)
         self._session.commit()
         if image_url:
             self._remove_image(image_url)
+
+    def _locked_event(self, event_id: int) -> Event:
+        # Serialize edits, verification and transitions; refresh stale ORM state
+        # after waiting for a concurrent PostgreSQL transaction.
+        connection = self._session.connection()
+        if connection.dialect.name == "sqlite" and not connection.connection.driver_connection.in_transaction:
+            # SQLite has no FOR UPDATE. Reserve its write transaction before
+            # reading state, rather than publishing from a stale read snapshot.
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
+        item = self._session.scalar(select(Event).where(Event.id == event_id)
+                                    .with_for_update().execution_options(populate_existing=True))
+        if item is None:
+            raise EventNotFoundError("Event not found")
+        return item
+
+    @staticmethod
+    def _utc_now() -> datetime:
+        return datetime.now(timezone.utc)
+
+    def _validate_publication(self, item: Event, changes=None) -> None:
+        changes = changes or {}
+        def value(name):
+            return changes.get(name, getattr(item, name))
+        errors = {}
+        for field in ("title", "location"):
+            if not isinstance(value(field), str) or not value(field).strip():
+                errors[field] = "A nonempty value is required"
+        if not isinstance(value("datetime"), datetime):
+            errors["datetime"] = "A valid event datetime is required"
+        for field in ("event_url", "source"):
+            try:
+                if not value(field):
+                    raise ValueError("missing")
+                validate_http_url(value(field))
+            except ValueError:
+                errors[field] = "A valid absolute http/https URL is required"
+        organizer_id = value("organizer_id")
+        organizer = self._session.scalar(select(Organizer).where(Organizer.id == organizer_id)
+                                         .with_for_update(read=True).execution_options(populate_existing=True)) if organizer_id else None
+        if organizer is None or not organizer.name.strip() or not (organizer.public_contact or "").strip():
+            errors["organizer_id"] = "An existing organizer with name and designated public contact is required"
+        if value("verified_at") is None:
+            errors["verified_at"] = "Explicit editorial verification is required"
+        if errors:
+            raise PublicationValidationError(errors)
+
+    def verify_event(self, event_id: int) -> Event:
+        item = self._locked_event(event_id)
+        verified_at = self._utc_now()
+        if item.publication_status == PublicationStatus.PUBLISHED:
+            self._validate_publication(item, {"verified_at": verified_at})
+        item.verified_at = verified_at
+        self._session.commit()
+        return self.get_event(event_id, include_unpublished=True)
+
+    def change_publication(self, event_id: int, status: PublicationStatus) -> Event:
+        item = self._locked_event(event_id)
+        if status == PublicationStatus.PUBLISHED:
+            self._validate_publication(item)
+        item.publication_status = status
+        self._session.commit()
+        return self.get_event(event_id, include_unpublished=True)
+
+    def change_event_status(self, event_id: int, status: EventStatus) -> Event:
+        item = self._locked_event(event_id)
+        if item.event_status != status:
+            if item.publication_status == PublicationStatus.PUBLISHED:
+                raise PublicationValidationError({"event_status": "Move to draft, change status, verify and republish"})
+            item.event_status = status
+            item.verified_at = None
+        elif item.publication_status == PublicationStatus.PUBLISHED:
+            self._validate_publication(item)
+        self._session.commit()
+        return self.get_event(event_id, include_unpublished=True)
 
     def save_image(self, file: UploadFile) -> str:
         if not file.filename:

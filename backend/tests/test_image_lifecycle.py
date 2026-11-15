@@ -46,7 +46,7 @@ def test_delete_removes_file_after_successful_commit(event_api, event_sessions, 
     monkeypatch.setattr(EventService, "_remove_image", verify_committed)
     assert event_api.delete("/events/1").status_code == 200
     assert not file.exists()
-    assert event_api.get("/events/1").status_code == 404
+    assert event_api.get("/admin/events/1").status_code == 404
 
 
 @pytest.mark.parametrize("action", ["delete", "replace", "clear"])
@@ -61,7 +61,7 @@ def test_shared_image_is_retained(event_api, event_sessions, action, suffix):
         response = event_api.put("/events/1", json={"image_url": NEW if action == "replace" else None})
     assert response.status_code == 200
     assert file.read_bytes() == b"test-only-image"
-    assert event_api.get("/events/2").json()["image_url"] == OLD + suffix
+    assert event_api.get("/admin/events/2").json()["image_url"] == OLD + suffix
     assert event_api.delete("/events/2").status_code == 200
     assert not file.exists()
 
@@ -120,9 +120,9 @@ def test_unlink_failure_does_not_report_failed_mutation(event_api, event_session
     assert response.status_code == 200
     assert file.exists()
     if action == "delete":
-        assert event_api.get("/events/1").status_code == 404
+        assert event_api.get("/admin/events/1").status_code == 404
     else:
-        assert event_api.get("/events/1").json()["image_url"] == NEW
+        assert event_api.get("/admin/events/1").json()["image_url"] == NEW
 
 
 @pytest.mark.parametrize("url", [
@@ -163,11 +163,11 @@ def test_failed_reference_lookup_defers_cleanup(event_api, event_sessions, monke
 
 @pytest.mark.parametrize("suffix", ["", "?v=1", "#preview"])
 def test_missing_owned_image_returns_422_without_changes(event_api, suffix):
-    before = event_api.get("/events/1").json()
+    before = event_api.get("/admin/events/1").json()
     assert event_api.put("/events/1", json={"title": "Not saved", "image_url": OLD + suffix}).status_code == 422
     assert event_api.post("/events/", json={"title": "New", "datetime": "2026-11-15T12:00:00",
                                           "location": "Novosibirsk", "image_url": OLD + suffix}).status_code == 422
-    assert event_api.get("/events/1").json() == before
+    assert event_api.get("/admin/events/1").json() == before
 
 
 @pytest.mark.parametrize("suffix", ["", "?v=1", "#preview"])
@@ -199,7 +199,7 @@ def test_committing_reference_prevents_cleanup(event_api, event_sessions, suffix
         release.set()
         thread.join(5)
     assert not thread.is_alive() and not failures
-    assert event_api.get("/events/2").json()["image_url"] == OLD + suffix
+    assert event_api.get("/admin/events/2").json()["image_url"] == OLD + suffix
     assert file.exists()
 
 
@@ -250,7 +250,8 @@ def test_alias_remains_http_accessible_after_canonical_event_deleted(event_api, 
     static_mount = next(route for route in app.routes if route.path == "/static")
     monkeypatch.setattr(static_mount, "app", StaticFiles(directory=file.parent.parent))
     assert event_api.delete("/events/1").status_code == 200
-    image_url = event_api.get("/events/2").json()["image_url"]
+    image_url = event_api.get("/admin/events/2").json()["image_url"]
+    assert event_api.get("/events/2").status_code == 404  # Hidden card does not make static files private.
     response = event_api.get(image_url)
     assert response.status_code == 200
     assert response.content == b"test-only-image"

@@ -12,7 +12,36 @@
 `docs/DEVELOPMENT_CONTEXT.md` → `docs/DECISIONS.md` →
 `backend/MIGRATIONS.md`.
 
-## Актуальная передача: PR-6 (2026-11-15)
+## Актуальная передача: PR-7 (2026-11-15)
+
+- PR #21/#22 merged; база PR-7 `2ef5326`, CI master после merge success.
+  Ветка `feature/event-publication-workflow`, `.worktrees/afisha-pr7`.
+- Public events только published, draft/archive дают 404 и не входят в COUNT;
+  cancelled/postponed опубликованные доступны. Admin GET `/admin/events/` и
+  `/{id}` защищены реальным JWT/is_admin в БД, видят все состояния.
+- Явный POST `/{id}/verify` под admin prefix ставит UTC. PATCH `/{id}/publication`
+  и `/{id}/status` меняют независимые статусы. Неполная публикация → 422 с fields,
+  без частичной записи. Общий POST/PUT не позволяет статусы/verified_at.
+- Критичные title/datetime/location/organizer_id/event_url/source и event_status
+  меняются через draft → правка → verify → published. Правка сбрасывает verify;
+  опубликованные некритичные правки проверяют итоговые требования до mutation.
+  Organizer требует name и designated public_contact; контакт не раскрывается.
+- Event row locks PG / BEGIN IMMEDIATE SQLite + свежий identity-map state
+  защищают от гонки «проверено → критичная правка → публикация со старым verify».
+  Изображения сохраняют post-commit/flock гарантии. AdminDashboard читает новый
+  endpoint; его пагинация, публичный HomePage и C2–C5 покрыты регрессиями.
+- Итог: backend **383 passed**, React **13 passed**, production build,
+  compileall/diff-check OK; PostgreSQL 17 concurrency test passed. Моделей,
+  миграций и зависимостей не добавляли. Документация PR-6 ниже — старый снимок.
+- Ограничения: verified_by/аудита нет в модели; static uploads остаются публичны
+  даже у скрытой карточки. PR-8 — время; PR-9 — полный редакторский UI;
+  PR-11 — уведомления об отмене, Next/SEO/sitemap. Прямые SQL-изменения вне API
+  обходят workflow. Production/legacy-копия не проверена, браузер QA не запускался.
+- Следующее действие: независимое review PR-7 и решение владельца. Merge/deploy
+  и переход к PR-8 не выполнялись; stash, старые worktrees и локальные настройки
+  сохранены. gstack/review не запускался.
+
+## Передача PR-6 (2026-11-15, до merge/PR-7)
 
 - PR #21 merged (`d4c5b23`), CI master после merge success (43658041385).
   PR-6 в `feature/event-organizers-and-statuses`, `.worktrees/afisha-pr6`.
