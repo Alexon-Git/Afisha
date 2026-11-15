@@ -60,10 +60,12 @@ def test_legacy_http_contract_and_new_defaults(event_api):
     assert body["organizer_id"] is body["event_url"] is body["source"] is body["verified_at"] is None
     assert body["publication_status"] == "draft" and body["event_status"] == "scheduled"
     identifier = body["id"]
-    assert event_api.get(f"/events/{identifier}").json() == body
+    assert event_api.get(f"/admin/events/{identifier}").json() == body
     assert event_api.put(f"/events/{identifier}", json={"title": "Edited"}).status_code == 200
-    # Temporary pre-PR-7 compatibility: drafts are still returned publicly.
-    assert identifier in {item["id"] for item in event_api.get("/events/").json()["items"]}
+    assert event_api.get(f"/events/{identifier}").status_code == 404
+    assert identifier not in {item["id"] for item in event_api.get("/events/").json()["items"]}
+    # Administrative access preserves the legacy editor's reading contract.
+    assert identifier in {item["id"] for item in event_api.get("/admin/events/").json()["items"]}
 
 
 @pytest.mark.parametrize("method", ["post", "put"])
@@ -77,20 +79,20 @@ def test_assign_clear_organizer_without_exposing_contact(event_api, event_sessio
     assert "must-not-be-in-public-response" not in response.text
     assert "public_contact" not in response.text
     identifier = response.json()["id"]
-    assert "public_contact" not in event_api.get(f"/events/{identifier}").text
-    assert "public_contact" not in event_api.get("/events/").text
+    assert "public_contact" not in event_api.get(f"/admin/events/{identifier}").text
+    assert "public_contact" not in event_api.get("/admin/events/").text
     assert event_api.put(f"/events/{identifier}", json={"organizer_id": None}).json()["organizer_id"] is None
 
 
 @pytest.mark.parametrize("method", ["post", "put"])
 @pytest.mark.parametrize("identifier", [999, 0, -1, 2147483648])
 def test_invalid_organizer_is_422_and_does_not_partially_edit(event_api, method, identifier):
-    before = event_api.get("/events/1").json()
+    before = event_api.get("/admin/events/1").json()
     url = "/events/" if method == "post" else "/events/1"
     response = getattr(event_api, method)(url, json={**OLD_REQUEST, "organizer_id": identifier})
     assert response.status_code == 422
-    assert event_api.get("/events/1").json() == before
-    assert event_api.get("/events/").json()["total_items"] == 1
+    assert event_api.get("/admin/events/1").json() == before
+    assert event_api.get("/admin/events/").json()["total_items"] == 1
 
 
 @pytest.mark.parametrize("field", ["event_url", "source"])
@@ -110,12 +112,12 @@ def test_http_links_can_be_set_and_cleared(event_api, field, url):
     "http:example.org", "https:///example.org",
 ])
 def test_invalid_links_rejected_before_write(event_api, field, url):
-    before = event_api.get("/events/1").json()
+    before = event_api.get("/admin/events/1").json()
     for method, path in [("post", "/events/"), ("put", "/events/1")]:
         response = getattr(event_api, method)(path, json={**OLD_REQUEST, field: url})
         assert response.status_code == 422
-    assert event_api.get("/events/1").json() == before
-    assert event_api.get("/events/").json()["total_items"] == 1
+    assert event_api.get("/admin/events/1").json() == before
+    assert event_api.get("/admin/events/").json()["total_items"] == 1
 
 
 @pytest.mark.parametrize("field,value", [
@@ -124,17 +126,17 @@ def test_invalid_links_rejected_before_write(event_api, field, url):
     ("verified_at", "2026-11-15T00:00:00Z"), ("verified_at", None),
 ])
 def test_general_api_cannot_write_controlled_fields(event_api, field, value):
-    before = event_api.get("/events/1").json()
+    before = event_api.get("/admin/events/1").json()
     for method, path in [("post", "/events/"), ("put", "/events/1")]:
         assert getattr(event_api, method)(path, json={**OLD_REQUEST, field: value}).status_code == 422
-    assert event_api.get("/events/1").json() == before
+    assert event_api.get("/admin/events/1").json() == before
 
 
 def test_ordinary_edit_does_not_set_or_update_verification(event_api, event_sessions):
     assert event_api.put("/events/1", json={"title": "Edited"}).json()["verified_at"] is None
     with event_sessions.begin() as db:
         db.get(Event, 1).verified_at = datetime(2026, 11, 1, 12, tzinfo=timezone.utc)
-    before = event_api.get("/events/1").json()["verified_at"]
+    before = event_api.get("/admin/events/1").json()["verified_at"]
     assert event_api.put("/events/1", json={"description": "Updated"}).json()["verified_at"] == before
 
 
@@ -176,4 +178,4 @@ def test_metadata_and_legacy_requests_over_real_http(live_event_api, event_sessi
     for payload in ({"publication_status": "published"}, {"verified_at": None},
                     {"organizer_id": 999}, {"source": "javascript:alert(1)"}):
         assert live_event_api.put(f"/events/{identifier}", json=payload).status_code == 422
-    assert live_event_api.get(f"/events/{identifier}").json() == response.json()
+    assert live_event_api.get(f"/admin/events/{identifier}").json() == response.json()

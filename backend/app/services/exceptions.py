@@ -17,6 +17,12 @@ class OrganizerNotFoundError(ServiceError):
     """Raised when the assigned organizer does not exist."""
 
 
+class PublicationValidationError(ServiceError):
+    def __init__(self, fields):
+        self.fields = fields
+        super().__init__("Event does not meet publication requirements")
+
+
 class InvalidImageError(ServiceError):
     """Raised when an uploaded image does not meet validation rules."""
 

@@ -14,14 +14,14 @@ CREATE = {"title": "New", "datetime": "2026-11-15T12:00:00", "location": "Novosi
 
 @pytest.mark.parametrize("field", ["title", "datetime", "location"])
 def test_explicit_null_required_field_is_422(event_api, field):
-    before = event_api.get("/events/1").json()
+    before = event_api.get("/admin/events/1").json()
     response = event_api.put("/events/1", json={"description": "must not save", field: None})
     assert response.status_code == 422
-    assert event_api.get("/events/1").json() == before
+    assert event_api.get("/admin/events/1").json() == before
 
 
 def test_partial_update_keeps_omitted_fields(event_api):
-    before = event_api.get("/events/1").json()
+    before = event_api.get("/admin/events/1").json()
     response = event_api.put("/events/1", json={"description": "Changed"})
     assert response.status_code == 200
     assert response.json() == {**before, "description": "Changed"}
@@ -30,12 +30,12 @@ def test_partial_update_keeps_omitted_fields(event_api):
 
 @pytest.mark.parametrize("method", ["post", "put"])
 def test_missing_category_returns_422_without_partial_write(event_api, event_sessions, method):
-    before = event_api.get("/events/1").json()
+    before = event_api.get("/admin/events/1").json()
     response = getattr(event_api, method)("/events/" if method == "post" else "/events/1",
                                          json={**CREATE, "category_id": 999})
     assert response.status_code == 422
     assert response.json() == {"detail": "Category not found"}
-    assert event_api.get("/events/1").json() == before
+    assert event_api.get("/admin/events/1").json() == before
     with event_sessions() as db:
         assert db.scalar(select(func.count()).select_from(Event)) == 1
         with pytest.raises(CategoryNotFoundError):
@@ -58,11 +58,11 @@ def test_valid_and_null_category(event_api, method, category_id):
     ("price", -1), ("rating", -0.1), ("rating", 10.1), ("discount", -1), ("discount", 101),
 ])
 def test_numeric_limits_reject_invalid_values(event_api, method, field, value):
-    before = event_api.get("/events/1").json()
+    before = event_api.get("/admin/events/1").json()
     response = getattr(event_api, method)("/events/" if method == "post" else "/events/1",
                                          json={**CREATE, field: value})
     assert response.status_code == 422
-    assert event_api.get("/events/1").json() == before
+    assert event_api.get("/admin/events/1").json() == before
 
 
 @pytest.mark.parametrize("numbers", [
@@ -81,12 +81,12 @@ def test_unknown_event_still_returns_404(event_api):
 
 
 def test_validation_over_real_http(live_event_api):
-    before = live_event_api.get("/events/1").json()
+    before = live_event_api.get("/admin/events/1").json()
     for field in ("title", "datetime", "location"):
         assert live_event_api.put("/events/1", json={field: None}).status_code == 422
     assert live_event_api.post("/events/", json={**CREATE, "category_id": 999}).status_code == 422
     assert live_event_api.put("/events/1", json={"title": "Not saved", "category_id": 999}).status_code == 422
-    assert live_event_api.get("/events/1").json() == before
+    assert live_event_api.get("/admin/events/1").json() == before
     response = live_event_api.put("/events/1", json={"description": "Saved", "category_id": None})
     assert response.status_code == 200
     assert response.json()["category"] is None
