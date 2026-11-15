@@ -85,17 +85,47 @@ cap_drop ALL/no-new-privileges. Backend сохраняет `--no-proxy-headers`.
 Воспроизводимая изолированная интеграция из корня репозитория:
 
 ```bash
+python3 -m unittest discover -s public/tests -p test_compose_isolation.py -v
+bash public/tests/compose-smoke.sh --config-only
 bash public/tests/compose-smoke.sh
 python3 public/tests/image-smoke.py afisha-pr10-image-test:local
 ```
 
-Требуются Docker Compose и Python 3. Первый скрипт создаёт уникальный project,
-тестовый volume, временный uploads и явно тестовые credentials; не читает
-backend/.env. Применяются только уже существующие миграции 0001–0003 на пустой
-тестовой БД. Порты по умолчанию: 58039 DB, 58040 backend, 53010 public;
-можно задать PR10_TEST_DB_PORT/PR10_TEST_BACKEND_PORT/PR10_TEST_PUBLIC_PORT.
-После проверки удаляются только созданные контейнеры/сеть и volume с
-подтверждённой меткой проекта. Образы остаются для осмотра.
+Требуются Docker Compose и Python 3. Shell-скрипт делегирует stdlib runner
+`compose_smoke.py`. **BLOCKER review:** прежний вариант наследовал shell env,
+который мог переопределить test.env. Он заменён единым runner с очищенным
+окружением (только фиксированный PATH и HOME), явным Docker config и context.
+DATABASE_URL/секреты/COMPOSE_*/DOCKER_* из shell не наследуются, включая TMPDIR.
+Контекст по умолчанию desktop-linux разрешён только с локальным Unix socket
+`~/.docker/run/docker.sock`; `--context default` — только `/var/run/docker.sock`.
+Иной endpoint, отсутствие socket или daemon не Linux дают безопасный отказ.
+После проверки endpoint закрепляется через --host для всех дальнейших команд.
+Глобальные contexts/settings не меняются. Произвольные удалённые daemons не поддержаны.
+
+До build/up валидируется `compose config --format json`: точные services,
+project/network/volume, отсутствие external и неожиданных mounts/overrides,
+DATABASE_URL только db:5432/afisha_db, случайные test-only secrets текущего
+запуска, uploads только в новом временном каталоге, localhost ports. Существующий
+volume/network/project с сгенерированным именем вызывает отказ. Проверенный JSON
+сохраняется с правами 0600 и используется всеми дальнейшими Compose-командами.
+Секреты и stderr/config с потенциальными секретами не печатаются.
+
+`--config-only` выполняет только чтение/проверку, не build/up/down/volume rm.
+Регрессионные тесты используют настоящий config parser и config-only CLI с
+конфликтующим окружением; ошибки up/cleanup и подмена endpoint проверяются
+mock-командами, без удалённого подключения или изменения чужих ресурсов.
+Тесты требуют доступного разрешённого локального Docker daemon.
+
+Полный smoke создаёт уникальные project/volume/uploads и случайные credentials;
+не читает backend/.env. Применяются существующие миграции 0001–0003 только на
+пустой тестовой БД. Порты фиксированы: 58039 DB, 58040 backend, 53010 public;
+shell-переопределения PR10_TEST_* больше не используются. Если порт занят, up
+откажет и cleanup уберёт только свой новый проект.
+До начала up cleanup не выполняет Docker-операций. После up (включая ошибку)
+он использует тот же socket/project/проверенный JSON; volume rm разрешён только
+для нового точного имени с совпадающим project label. Нет down -v/remove-orphans.
+Временные файлы удаляются при ошибках и SIGINT/SIGTERM; после SIGKILL/аварии daemon
+может понадобиться ручная проверка своих тестовых ресурсов. Образы остаются для осмотра.
 Второй скрипт строит отдельный образ с игнорируемым .env-canary и проверяет
 каждый сохранённый слой, non-root и отсутствие backend credentials в image config.
 
