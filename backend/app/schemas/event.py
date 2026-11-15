@@ -1,9 +1,42 @@
 from datetime import datetime as dt_datetime
-from typing import List, Optional
+from typing import Annotated, List, Optional
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, HttpUrl, TypeAdapter, field_validator, model_validator
 
 from .category import Category
+from ..models.event_status import EventStatus, PublicationStatus
+
+
+_HTTP_URL = TypeAdapter(HttpUrl)
+
+
+def validate_http_url(value: str) -> str:
+    if "\\" in value or any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError("URL must be an absolute http/https URL without whitespace or backslashes")
+    parsed = urlsplit(value)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError("URL must be an absolute http/https URL")
+    url = _HTTP_URL.validate_python(value)
+    if url.username is not None or url.password is not None:
+        raise ValueError("Credentials are not allowed in URLs")
+    return str(url)
+
+
+SafeHttpUrl = Annotated[str, AfterValidator(validate_http_url)]
+
+
+class EventMetadataInput(BaseModel):
+    organizer_id: Optional[int] = Field(default=None, ge=1, le=2147483647)
+    event_url: Optional[SafeHttpUrl] = None
+    source: Optional[SafeHttpUrl] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_controlled_metadata(cls, data):
+        if isinstance(data, dict) and {"verified_at", "publication_status", "event_status"}.intersection(data):
+            raise ValueError("Verification and status changes require a controlled editorial action")
+        return data
 
 
 class EventBase(BaseModel):
@@ -19,13 +52,13 @@ class EventBase(BaseModel):
     payment_url: Optional[str] = None
 
 
-class EventCreate(EventBase):
+class EventCreate(EventBase, EventMetadataInput):
     price: Optional[int] = Field(default=None, ge=0)
     rating: Optional[float] = Field(default=None, ge=0, le=10)
     discount: Optional[int] = Field(default=None, ge=0, le=100)
 
 
-class EventUpdate(BaseModel):
+class EventUpdate(EventMetadataInput):
     title: Optional[str] = None
     description: Optional[str] = None
     datetime: Optional[dt_datetime] = None
@@ -50,6 +83,12 @@ class Event(EventBase):
     id: int
     creator_id: Optional[int] = None
     category: Optional[Category] = None
+    organizer_id: Optional[int] = None
+    event_url: Optional[str] = None
+    source: Optional[str] = None
+    verified_at: Optional[dt_datetime] = None
+    publication_status: PublicationStatus
+    event_status: EventStatus
 
     model_config = ConfigDict(from_attributes=True)
 

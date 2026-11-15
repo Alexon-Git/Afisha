@@ -23,8 +23,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..models.category import Category
 from ..models.event import Event
+from ..models.organizer import Organizer
 from ..schemas.event import EventCreate, EventUpdate
-from .exceptions import CategoryNotFoundError, EventNotFoundError, InvalidDateFilterError, InvalidImageError
+from .exceptions import CategoryNotFoundError, EventNotFoundError, InvalidDateFilterError, InvalidImageError, OrganizerNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,7 @@ class EventService:
 
     def create_event(self, event_in: EventCreate, *, creator_id: Optional[int]) -> Event:
         self._validate_category(event_in.category_id)
+        self._validate_organizer(event_in.organizer_id)
         db_event = Event(**event_in.model_dump(), creator_id=creator_id)
         with self._image_reference(event_in.image_url):
             self._session.add(db_event)
@@ -132,6 +134,8 @@ class EventService:
         update_data = event_update.model_dump(exclude_unset=True)
         if "category_id" in update_data:
             self._validate_category(update_data["category_id"])
+        if "organizer_id" in update_data:
+            self._validate_organizer(update_data["organizer_id"])
         old_image_url = db_event.image_url
         new_image_url = update_data.get("image_url", old_image_url)
         with self._image_reference(new_image_url if new_image_url != old_image_url else None):
@@ -148,6 +152,16 @@ class EventService:
     def _validate_category(self, category_id: Optional[int]) -> None:
         if category_id is not None and self._session.get(Category, category_id) is None:
             raise CategoryNotFoundError("Category not found")
+
+    def _validate_organizer(self, organizer_id: Optional[int]) -> None:
+        if organizer_id is not None:
+            # Keep an assigned organizer from being deleted before commit on PG.
+            identifier = self._session.scalar(
+                select(Organizer.id).where(Organizer.id == organizer_id)
+                .with_for_update(read=True, key_share=True)
+            )
+            if identifier is None:
+                raise OrganizerNotFoundError("Organizer not found")
 
     def delete_event(self, event_id: int) -> None:
         db_event = self._session.get(Event, event_id)

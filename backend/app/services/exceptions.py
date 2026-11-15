@@ -13,6 +13,10 @@ class EventNotFoundError(ServiceError):
     """Raised when an event with the requested identifier does not exist."""
 
 
+class OrganizerNotFoundError(ServiceError):
+    """Raised when the assigned organizer does not exist."""
+
+
 class InvalidImageError(ServiceError):
     """Raised when an uploaded image does not meet validation rules."""
 
