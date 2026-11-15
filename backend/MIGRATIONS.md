@@ -113,6 +113,52 @@ supported production entry point.
 
 Database migrations and this task's tests must never use the production database.
 
+## Organizers and event metadata (`0003_event_metadata`, PR-6)
+
+Based on `0002_login_attempts`. Adds `organizers` and nullable event fields
+`organizer_id`, `event_url`, `source`, `verified_at`. The indexed organizer FK
+uses `ON DELETE SET NULL`; deleting an organizer never cascades event deletion.
+ORM deletion also clears references on SQLite connections without FK enforcement.
+Organizer timestamps have server creation defaults; `updated_at` is updated by
+ORM writes (direct SQL writers must maintain it themselves).
+
+Two independent VARCHAR/CHECK statuses are non-null with safe server defaults:
+`publication_status = draft | published | archived` (default draft), and
+`event_status = scheduled | cancelled | postponed` (default scheduled).
+Existing events receive draft/scheduled and NULL editorial metadata. No old
+events are published, no verification dates are invented, no payment URLs
+are copied, and no existing datetime values/types/timezones are altered.
+PostgreSQL uses additive ALTER TABLE; SQLite uses batch table recreation,
+preserving existing columns/data, indexes and foreign keys.
+
+**Do not release PR-6 alone to production.** Until PR-7 adds visibility and
+publication rules, the public API still returns drafts for compatibility.
+Ordinary POST/PUT rejects status and verification fields. Organizer contacts
+are not exposed automatically; public disclosure needs a controlled action.
+
+Verification (2026-11-15): SQLite full backend suite 296 passed; PostgreSQL
+17.11 in a separate disposable Compose project verified fresh 0001→0002→0003,
+upgrade of populated 0002, legacy users/categories/events/counters preservation,
+defaults, FK/CHECK constraints, model/schema equivalence and ORM/service writes.
+Only synthetic data were available; a restored production/legacy database has
+NOT been verified. Follow the existing backup/staging/baseline procedure above.
+
+To reproduce PostgreSQL checks, supply ONLY an isolated test database URL:
+
+```bash
+AFISHA_PR6_TEST_DATABASE_URL='postgresql+psycopg2://test_user:test_password@127.0.0.1:TEST_PORT/test_db' \
+  python -m pytest -q tests/test_event_metadata_migration.py
+```
+
+Each PostgreSQL test creates and drops its own randomly named `pr6_*` schema;
+the test database role needs schema creation privileges. Without this variable
+the same tests use temporary SQLite files. Never supply a production URL.
+
+**Destructive downgrade:** 0003→0002 removes all organizers, organizer links,
+event_url/source/verified_at and both statuses. Downgrade cannot reconstruct
+those values. It must not run on real data without a verified backup and an
+explicit rollback/export plan. No downgrade of real data was performed.
+
 ## Test commands
 
 Install `pip install -r requirements-dev.txt`, then run `pytest -q`
