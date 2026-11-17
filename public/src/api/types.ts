@@ -25,6 +25,7 @@ export interface Event {
   creator_id: number | null;
   category: Category | null;
   organizer_id: number | null;
+  organizer?: { name: string } | null;
   event_url: string | null;
   source: string | null;
   verified_at: string | null;

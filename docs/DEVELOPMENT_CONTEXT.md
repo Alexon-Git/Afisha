@@ -9,7 +9,38 @@
 > и контекст предыдущих решений. Не подменяй им повторное чтение
 > затрагиваемых файлов и текущего GitHub Actions.
 
-## PR-10 — отдельный публичный Next.js foundation (2026-11-15)
+## PR-11 — публичный каталог и SEO (2026-11-17)
+
+- База master `90b19db`, PR #24 merged, merge CI 44025620978 success.
+  Ветка `feature/public-event-catalog-seo`, отдельный `.worktrees/afisha-pr11`.
+- Реализованы `/`, `/events`, `/events/[id]`, серверные фильтры date/range/category,
+  sort и пагинация с query в URL. Числовой ID выбран владельцем для PR-11, R11
+  о slug остаётся открытым. Все данные читаются из публичных API.
+- EventSchema возвращает organizer только с name, GET/list eager-load связь,
+  сортировка при равных датах стабильна по id. Тест подтверждает отсутствие контакта.
+  CRA получил необязательное поле типа. БД/миграции не изменялись.
+- Naive-компоненты выводятся без преобразования зоны. Aware-путь явно использует
+  Asia/Novosibirsk. Главная выбирает ближайшие календарные даты от сегодняшнего
+  дня по существующему контракту фильтров. Точная классификация будущего момента
+  для legacy-данных зависит от PR-8. Цена 0/NULL показана как требующая уточнения.
+- Dynamic SSR/no-store и request-scoped React cache. Draft/archived/missing ID
+  дают HTTP 404. Cancelled/postponed доступны с уведомлением и без CTA регистрации.
+  Безопасные event_url/source и локальные UUID uploads, fallback изображений,
+  plain-text описание и экранированный JSON-LD. Схема Event только при aware date.
+- Canonical/OG/Twitter, robots/sitemap зависят от строгого runtime SITE_URL.
+  Без origin — noindex/nofollow, robots disallow, sitemap 503. Sitemap обходит
+  все API-страницы до 499×100 событий, при ошибках/изменении total_pages — 503.
+  Старые списки не кешируются. Production origin не утверждён.
+- Проверено npm ci/typecheck/build, 11 public tests в трёх TZ, standalone HTTP
+  smoke с >100 fixture events, 404, SEO, XSS и publication changes. Backend
+  384 passed/compileall, CRA 33 tests/build. Docker config-only безопасно отказал
+  из-за отсутствующего socket. Контейнеры не создавались. Browser access host
+  недоступен, mobile/desktop browser QA остаётся неподтверждённой.
+- Preflight запущен и отверг .git-файл worktree, Git принадлежность проверена.
+  PR-8 worktree/документы не затрагивались, задача остаётся BLOCKED. Инструкции
+  и ограничения в public/README.md. Состояние подготовлено к review, без merge/deploy.
+
+## PR-10 — отдельный публичный Next.js foundation (2026-11-15, до merge)
 
 - База `88349e6`: PR #23 merged, CI master 43731712143 success.
   Отдельная ветка `feature/public-nextjs-foundation`, `.worktrees/afisha-pr10`.

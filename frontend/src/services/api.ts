@@ -57,6 +57,7 @@ export const normalizeCategoryList = (data: unknown): Category[] => {
 };
 
 export interface Event {
+  organizer?: { name: string } | null;
   id: number;
   title: string;
   description?: string;

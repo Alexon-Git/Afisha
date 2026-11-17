@@ -79,11 +79,18 @@ class EventUpdate(EventMetadataInput):
         return value
 
 
+class PublicOrganizer(BaseModel):
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class Event(EventBase):
     id: int
     creator_id: Optional[int] = None
     category: Optional[Category] = None
     organizer_id: Optional[int] = None
+    organizer: Optional[PublicOrganizer] = None
     event_url: Optional[str] = None
     source: Optional[str] = None
     verified_at: Optional[dt_datetime] = None
