@@ -88,9 +88,9 @@ class EventService:
 
         items_stmt = (
             select(Event)
-            .options(joinedload(Event.category))
+            .options(joinedload(Event.category), joinedload(Event.organizer))
             .where(*filters)
-            .order_by(order_expression)
+            .order_by(order_expression, Event.id)
             .offset((page - 1) * limit)
             .limit(limit)
         )
@@ -111,7 +111,7 @@ class EventService:
         }
 
     def get_event(self, event_id: int, *, include_unpublished: bool = False) -> Event:
-        stmt = select(Event).options(joinedload(Event.category)).where(Event.id == event_id)
+        stmt = select(Event).options(joinedload(Event.category), joinedload(Event.organizer)).where(Event.id == event_id)
         if not include_unpublished:
             stmt = stmt.where(Event.publication_status == PublicationStatus.PUBLISHED)
         event = self._session.scalar(stmt)

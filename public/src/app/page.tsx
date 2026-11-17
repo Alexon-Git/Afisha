@@ -1,25 +1,24 @@
-import { getBackendHealth } from '../api/server';
+import { getPublishedEvents } from '../api/server';
+import { calendarToday } from '../domain/dates';
+import { EventGrid, ApiError, DateNote } from '../components/Events';
 
-// Backend availability is checked at request time, never during image build.
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  let connected = false;
-  try { await getBackendHealth(); connected = true; } catch { /* Controlled fallback. */ }
+  let content;
+  try {
+    const result = await getPublishedEvents(1, 6, { date_from: calendarToday(), date_to: '9999-12-30', sort: 'asc' });
+    content = <EventGrid events={result.items} />;
+  } catch { content = <ApiError />; }
   return <main id="main" className="shell main">
-    <section className="hero">
-      <p className="eyebrow">Деловая жизнь города</p>
-      <h1>Место встречи<br />бизнеса и идей.</h1>
-      <p className="intro">Готовим афишу деловых мероприятий Новосибирска: чтобы находить
-        полезные встречи и переходить к регистрации у организатора.</p>
+    <section className="hero"><p className="eyebrow">Для тех, кто развивает своё дело</p>
+      <h1>Хорошие встречи<br />двигают бизнес.</h1>
+      <p className="intro">Конференции, бизнес-встречи и новые идеи в Новосибирске. Выберите событие и зарегистрируйтесь у организатора.</p>
+      <a className="button" href="/events">Найти мероприятие <span aria-hidden="true">↗</span></a>
+      <nav className="quick-filters" aria-label="Быстрый выбор даты"><a href="/events?date=today">Сегодня</a><a href="/events?date=tomorrow">Завтра</a><a href="/events?date=weekend">Выходные</a></nav>
     </section>
-    <section className="status-card" aria-labelledby="status-title">
-      <span className="section-number" aria-hidden="true">01 / Статус</span>
-      <h2 id="status-title">Публичный сайт в подготовке</h2>
-      <p>Каталог и страницы мероприятий появятся на следующем этапе. Сейчас здесь технический каркас сайта.</p>
-      <p className={connected ? 'connection online' : 'connection'} role="status">
-        {connected ? 'Соединение с сервисом установлено' : 'Сервис временно недоступен. Попробуйте обновить страницу позже.'}
-      </p>
+    <section aria-labelledby="events-heading"><div className="section-heading"><div><p className="eyebrow">В афише города</p><h2 id="events-heading">Ближайшие календарные даты</h2></div><a href="/events">Весь каталог →</a></div>
+      <DateNote />{content}
     </section>
   </main>;
 }

@@ -25,7 +25,7 @@
 - [x] PR-7 backend: публикация проверяет обязательный минимум D-019, правки published валидируются до записи; критичные правки требуют draft/reverify (HTTP tests, PostgreSQL concurrency test, 2026-11-15; ожидает merge)
 - [x] PR-7: `verified_at` ставится только отдельным admin verify, серверный UTC; обычные POST/PUT запрещают его запись (HTTP tests)
 - [x] PR-7 public API скрывает draft/archive, ID возвращает 404, COUNT/пагинация не учитывают скрытые; query bypass отсутствует (HTTP tests)
-- [ ] Черновики отсутствуют в sitemap (PR-11; sitemap ещё не реализован)
+- [x] PR-11 sitemap исключает draft/archived, обходит >100 событий, отражает скрытие публикации и отказывает с 503 при ошибке API (standalone HTTP smoke, fixtures, 2026-11-17)
 - [x] PR-7 API: published cancelled/postponed доступны (HTTP tests)
 - [ ] Заметные уведомления об отмене/переносе в публичном UI (PR-11)
 
@@ -44,6 +44,11 @@
 - [ ] «Сегодня/выходные» считаются по Asia/Novosibirsk, не по времени сервера
 
 ## 4. Публичный сайт и SEO
+
+- [x] PR-11 SSR главной/каталога/event по числовому ID, фильтры и пагинация проверены standalone HTTP fixtures, public build/typecheck успешны (2026-11-17)
+- [x] PR-11 canonical/OG/Twitter, robots/sitemap, noindex без SITE_URL и безопасный JSON-LD только для aware datetime проверены тестами (2026-11-17)
+- [ ] PR-11 desktop/mobile browser QA — browser access host недоступен при локальной проверке
+- [ ] Утверждён и настроен production SITE_URL, проверен публичный origin
 - [ ] Production build Next.js (standalone) успешен
 - [ ] Страницы `/`, каталог, `/events/{id|slug}`; 404 для несуществующих
 - [ ] Проверка HTML без выполнения JavaScript (`curl`): основной контент и метаданные в ответе

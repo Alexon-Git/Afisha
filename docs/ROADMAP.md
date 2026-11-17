@@ -46,8 +46,8 @@
 
 ## Этап 3. Публичный сайт на Next.js — TODO
 
-- [ ] **PR-10. IN REVIEW** — `feature/public-nextjs-foundation`: отдельный public/ на Next.js 16.4.6, React 19.3.1, Node 24.22.3; standalone Docker и opt-in Compose, server-only internal/browser API split. Typecheck/build/6 API tests/standalone и реальный PG17+FastAPI Docker smoke успешны; CRA 33 tests/build, backend 86 целевых tests. Не merged, без deploy. Каталог/SEO — PR-11, routing — PR-12, общий CI — PR-13. PR-8 остаётся BLOCKED; работа с датами не реализована.
-- [ ] **PR-11.** Каталог и страницы событий, SEO, Open Graph, canonical, `sitemap.xml`, `robots.txt`, schema.org Event при достоверных данных; черновики не индексируются; опубликованные отменённые события доступны с уведомлением; безопасный вывод описаний.
+- [x] **PR-10. DONE** — PR #24 merged, master `90b19db`, CI merge 44025620978 success. Next.js foundation и защищённый локальный Compose smoke включены.
+- [ ] **PR-11. IN REVIEW** — `feature/public-event-catalog-seo` от `90b19db`. Главная/каталог/event по числовому ID, серверные фильтры/пагинация, dynamic/no-store, canonical/OG/Twitter/robots/sitemap при валидном SITE_URL, JSON-LD только для aware datetime. Публичный organizer summary содержит только name. Public 11 tests ×3 TZ/build/standalone, backend 384 tests/compileall, CRA 33 tests/build успешны. Docker socket и browser access host недоступны, контейнерная и mobile/browser QA PR-11 не подтверждены. PR-8 BLOCKED, гарантированная семантика будущего абсолютного момента остаётся зависимой от него. Без merge/deploy.
 - [ ] Проверка HTML без JavaScript, кеш и обновление страниц после правок в админке.
 - [ ] Мобильная адаптивность и доступность.
 

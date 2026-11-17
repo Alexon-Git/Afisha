@@ -157,7 +157,7 @@ for(const k of ['DATABASE_URL','SECRET_KEY','ADMIN_PASSWORD','POSTGRES_PASSWORD'
 a.equal(process.env.INTERNAL_API_URL,'http://backend:8039');
 a.deepEqual(await(await fetch(process.env.INTERNAL_API_URL+'/health')).json(),{status:'healthy'});
 a.equal((await(await fetch(process.env.INTERNAL_API_URL+'/events/')).json()).total_items,0);
-const r=await fetch('http://127.0.0.1:3000');a.equal(r.status,200);a.match(await r.text(),/Соединение с сервисом установлено/);
+const r=await fetch('http://127.0.0.1:3000');a.equal(r.status,200);a.match(await r.text(),/Мероприятий пока нет/);
 a.equal((await fetch('http://127.0.0.1:3000/health')).status,200);
 })().catch(()=>process.exit(1));
 """)
