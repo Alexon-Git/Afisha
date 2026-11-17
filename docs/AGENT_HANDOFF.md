@@ -12,7 +12,30 @@
 `docs/DEVELOPMENT_CONTEXT.md` → `docs/DECISIONS.md` →
 `backend/MIGRATIONS.md`.
 
-## Актуальная передача: PR-7 (2026-11-15)
+## Актуальная передача: PR-10 (2026-11-15, до merge)
+
+- База master `88349e6`, PR #23 merged, CI merge success. Ветка
+  `feature/public-nextjs-foundation`, worktree `.worktrees/afisha-pr10`.
+- Добавлено отдельное `public/` (Next 16.4.6/React 19.3.1/TS 5.9.3), Node
+  24.22.3 Docker standalone multi-stage/non-root. Инструкции и повторяемые
+  smoke-команды: `public/README.md`. CRA остаётся админкой, FastAPI общим backend.
+- Главная — нейтральный SSR-каркас со статусом FastAPI. Нет дат/событий/каталога.
+  Server-only API: runtime INTERNAL_API_URL, Docker http://backend:8039.
+  Browser API: build-time /api; без PR-12 reverse proxy этот путь ещё не работает.
+  Ключи backend, JWT и доступ к БД публичному приложению не нужны.
+- Compose opt-in: `backend/docker-compose.public.yml`, базовый Compose не менялся;
+  существующий volume и uploads сохранены. Все ports localhost, security flags
+  backend и --no-proxy-headers сохранены. Не выполнять down -v.
+- Проверки: public npm ci/typecheck/6 API tests/build/standalone smoke;
+  реальный Docker public→backend + PG17, outage, health, non-root/ports;
+  canary отсутствует во всех image layers, internal URL отсутствует в browser JS.
+  Production npm audit: 0. CRA 33 Jest tests/build, backend 86 publication tests.
+  Тестовый stack/volume удалён; production данные не использовались.
+- PR-8 BLOCKED, его локальная документация не переносилась. Не начинать PR-11:
+  каталог/страницы/SEO/инвалидация позже. Production Nginx — PR-12, CI всех
+  приложений — PR-13. Ни merge, ни deploy не выполнялись; browser QA нет.
+
+## Передача PR-7 (2026-11-15, до merge)
 
 - PR #21/#22 merged; база PR-7 `2ef5326`, CI master после merge success.
   Ветка `feature/event-publication-workflow`, `.worktrees/afisha-pr7`.

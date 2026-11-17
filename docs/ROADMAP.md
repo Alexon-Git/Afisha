@@ -30,7 +30,7 @@
 ## Этап 1. Модель данных и публикация — IN PROGRESS
 
 - [x] **PR-6. DONE** — PR #22 merged (`2ef5326`), CI merge success: Organizer, nullable метаданные, два статуса и миграция 0003. Backend 296 passed; миграции на SQLite/PostgreSQL 17.11 проверены. До выпуска требуется PR-7.
-- [ ] **PR-7. IN REVIEW** — `feature/event-publication-workflow`: public/admin чтение, явный verify, защищённые переходы и валидация публикации/правок; критичные изменения только через draft и повторную проверку. Backend 383 passed, React 13 passed/build OK, PG concurrency OK. Merge/deploy не выполнялись. UI/уведомления/SEO и timezone остаются PR-9/PR-11/PR-8.
+- [x] **PR-7. DONE** — PR #23 merged, master `88349e6`, CI merge-коммита 43731712143 success. Public/admin чтение, verify и workflow; fix частичного EventUpdate `615cdbf` включён. UI/SEO/timezone остаются PR-9/PR-11/PR-8.
 - [ ] Цена в трёх состояниях (бесплатно / известная / не указана) — после решения R7.
 - [x] Решение R6: два независимых статуса и их значения утверждены (D-020); реализация в PR-6 ожидает merge.
 
@@ -46,7 +46,7 @@
 
 ## Этап 3. Публичный сайт на Next.js — TODO
 
-- [ ] **PR-10.** Каркас Next.js 16.x (версию зафиксировать после проверки), Docker, раздельные внутренний и публичный адреса API.
+- [ ] **PR-10. IN REVIEW** — `feature/public-nextjs-foundation`: отдельный public/ на Next.js 16.4.6, React 19.3.1, Node 24.22.3; standalone Docker и opt-in Compose, server-only internal/browser API split. Typecheck/build/6 API tests/standalone и реальный PG17+FastAPI Docker smoke успешны; CRA 33 tests/build, backend 86 целевых tests. Не merged, без deploy. Каталог/SEO — PR-11, routing — PR-12, общий CI — PR-13. PR-8 остаётся BLOCKED; работа с датами не реализована.
 - [ ] **PR-11.** Каталог и страницы событий, SEO, Open Graph, canonical, `sitemap.xml`, `robots.txt`, schema.org Event при достоверных данных; черновики не индексируются; опубликованные отменённые события доступны с уведомлением; безопасный вывод описаний.
 - [ ] Проверка HTML без JavaScript, кеш и обновление страниц после правок в админке.
 - [ ] Мобильная адаптивность и доступность.
