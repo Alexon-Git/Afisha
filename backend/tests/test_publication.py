@@ -60,6 +60,20 @@ def admin_get(editorial, identifier=1):
     return response.json()
 
 
+def test_public_organizer_summary_discloses_only_name(editorial):
+    client, _, _ = editorial
+    detail = client.get('/events/2')
+    assert detail.status_code == 200
+    assert detail.json()['organizer'] == {'name': 'Club'}
+    listing = client.get('/events/').json()
+    for item in listing['items']:
+        assert item['organizer'] == {'name': 'Club'}
+    assert 'Designated public editorial contact' not in detail.text
+    assert 'public_contact' not in detail.text
+    assert client.get('/events/1').status_code == 404
+    assert client.get('/events/3').status_code == 404
+
+
 @pytest.mark.parametrize("params", [{}, {"include_drafts": "true"}, {"include_unpublished": "true"},
                                     {"status": "draft"}, {"publication_status": "draft"}])
 def test_public_visibility_cannot_be_overridden(editorial, params):

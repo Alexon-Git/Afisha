@@ -12,7 +12,40 @@
 `docs/DEVELOPMENT_CONTEXT.md` → `docs/DECISIONS.md` →
 `backend/MIGRATIONS.md`.
 
-## Актуальная передача: PR-10 (2026-11-15, до merge)
+## PR #25 — повторное review category slug (2026-11-22)
+
+- Ветка `feature/public-event-catalog-seo`: исправлена несовместимость category
+  с backend slug (`_`, допустимые сочетания разделителей, длина до 150).
+- Добавлены регрессии query/API и standalone-формы для `business_meetings`,
+  негативные случаи URL/traversal/control chars/длины. Node 24.22.3: целевые
+  2 passed, полный public suite 13 passed, typecheck/build/HTTP smoke успешны.
+- Изменены только frontend parser, три тестовых файла и два документа контекста.
+  Следующий шаг — повторное review PR #25. Merge/deploy не выполнялись.
+
+## Передача PR-11 (2026-11-17)
+
+- База `90b19db`, PR #24 merged, CI merge success. Ветка
+  `feature/public-event-catalog-seo`, `.worktrees/afisha-pr11`.
+- Public SSR `/`, `/events`, `/events/[id]` с реальными API, GET-фильтрами
+  и серверной пагинацией. ID разрешён владельцем для MVP, будущий slug R11 открыт.
+- Organizer summary только name, контакты исключены. Backend добавил стабильный
+  порядок id при равных датах. Миграций и изменений timezone нет.
+- Naive datetime показывается исходными компонентами с оговоркой. Aware явно
+  форматируется в Asia/Novosibirsk. Главная выбирает календарные даты от сегодня,
+  точность абсолютного будущего момента ждёт PR-8. Цена 0/NULL требует уточнения R7.
+- Canonical/OG/Twitter/robots/sitemap, JSON-LD только для aware. Отсутствующий
+  SITE_URL включает noindex и sitemap 503. Динамические страницы/no-store,
+  sitemap целиком перечитывает API, 404 скрытым событиям, cancelled/postponed
+  сохраняются без активного CTA регистрации. Детали и команды public/README.md.
+- Проверено public ci/typecheck/11 tests ×3 TZ/build/standalone smoke,
+  backend 384 passed/compileall, CRA 33 tests/build. Docker socket недоступен,
+  защищённый runner отказал на config-only до создания контейнеров. Browser
+  access host недоступен, mobile QA не подтверждена. Preflight имеет известную
+  ошибку .git worktree, Git проверен отдельно.
+- PR-8 BLOCKED и его worktree сохранён. Production SITE_URL/маршрутизация uploads
+  и Nginx ждут владельца/PR-12. Merge/deploy не выполнялись.
+
+## Передача PR-10 (2026-11-15, до merge)
 
 - База master `88349e6`, PR #23 merged, CI merge success. Ветка
   `feature/public-nextjs-foundation`, worktree `.worktrees/afisha-pr10`.

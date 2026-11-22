@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test, mock } from 'node:test';
 import { getBackendHealth, getPublishedEvents as serverEvents } from '../src/api/server.ts';
 import { getPublishedEvents as browserEvents } from '../src/api/browser.ts';
+import { catalogQuery } from '../src/domain/catalog.ts';
 
 const originalInternal = process.env.INTERNAL_API_URL;
 const originalPublic = process.env.NEXT_PUBLIC_API_BASE;
@@ -31,6 +32,18 @@ test('server event client uses public events endpoint and preserves opaque legac
   const fetch = mock.method(globalThis, 'fetch', async () => Response.json(data));
   assert.deepEqual(await serverEvents(2), data);
   assert.equal(fetch.mock.calls[0].arguments[0], 'http://backend:8039/events/?page=2&limit=10');
+});
+
+test('category with underscore passes catalog validation and reaches the public events API unchanged', async () => {
+  process.env.INTERNAL_API_URL = 'http://backend:8039';
+  const result = catalogQuery({ category: 'business_meetings' });
+  assert.equal(result.error, '');
+  const data = { items: [], page: 1, limit: 12, total_items: 0, total_pages: 0 };
+  const fetch = mock.method(globalThis, 'fetch', async () => Response.json(data));
+  assert.deepEqual(await serverEvents(result.page, 12, result.filters), data);
+  const url = new URL(fetch.mock.calls[0].arguments[0] as string);
+  assert.equal(url.pathname, '/events/');
+  assert.equal(url.searchParams.get('category'), 'business_meetings');
 });
 
 test('browser events use only the same-origin public base', async () => {

@@ -1,4 +1,61 @@
-# Публичный сайт «Бизнес Афиши» — PR-10
+# Публичный сайт «Бизнес Афиши» — PR-11
+
+## Каталог и SEO
+
+Маршруты `/`, `/events`, `/events/[id]` получают данные публичного FastAPI.
+Числовой ID выбран владельцем для текущего MVP. R11 о будущем slug открыт.
+Параметры каталога date/date_from/date_to/category/sort/page проверяются и
+передаются в API. GET-форма и ссылки пагинации работают без JavaScript.
+Backend фильтрует до COUNT/offset. Для равных дат добавлен стабильный порядок по id.
+EventSchema аддитивно возвращает organizer с единственным полем name. Контакты
+организатора не сериализуются. CRA получил соответствующее необязательное поле типа.
+
+Главная выбирает даты от текущего календарного дня Новосибирска до последней
+поддержанной границы через существующий API. Заголовок «Ближайшие календарные
+даты» описывает эту выборку. При неизвестной зоне legacy-значений точная
+классификация будущего абсолютного момента остаётся зависимой от PR-8.
+Naive datetime форматируется по исходным компонентам, с пояснением посетителю.
+Aware datetime отображается через явную Asia/Novosibirsk и может использоваться
+для JSON-LD. Стоимость 0/NULL требует уточнения у организатора до решения R7.
+
+Все страницы и metadata динамические. Fetch использует no-store. React cache
+в detail объединяет чтение в пределах одного SSR-запроса. Между запросами
+состояние публикации перечитывается. Metadata завершается до отправки HTML,
+поэтому hidden/missing/невалидный id получает HTTP 404. Cancelled/postponed
+сохраняют страницу с уведомлением, CTA регистрации приостановлен для обоих.
+CTA scheduled использует только безопасный event_url. Source проходит ту же
+http/https-проверку. Описание отображается текстом, JSON-LD экранирует `<`.
+
+`SITE_URL` задаётся **runtime** после утверждения origin владельцем. Принимается
+http/https URL без credentials, whitespace, path, query/fragment, для обычного
+развёртывания нужен HTTPS. Localhost требует явного ALLOW_LOCAL_SITE_URL=1
+для тестов. Образ и Compose PR-10 этот origin не задают. При отсутствии или
+ошибке SITE_URL страницы получают noindex/nofollow, canonical и og:url отсутствуют,
+robots запрещает обход, sitemap отвечает 503. Фиктивный production origin не задан.
+С валидным origin работают canonical, OG, Twitter, robots и sitemap.
+JSON-LD Event требует aware startDate и published, цена/посещаемость не выдумываются.
+
+Sitemap перечитывает все страницы API по 100 записей и дедуплицирует ID.
+При ошибке или изменении числа страниц во время обхода возвращает 503/no-store.
+Лимит безопасности 499 страниц даёт до 49 900 событий. Превышение вызывает 503,
+для большего каталога потребуется sitemap index. Draft/archived исключаются,
+published cancelled/postponed остаются. Отдельной инвалидации и ISR нет.
+Изображения используют только канонические локальные uploads UUID-пути,
+при ошибке загрузки показывается нейтральная заглушка. Маршрутизация /static
+требует PR-12, Next не запрашивает произвольные внешние изображения на сервере.
+
+Проверки PR-11 выполнены 2026-11-17. npm ci/typecheck/build, 11 public tests
+под UTC/Asia/Novosibirsk/America/Los_Angeles и standalone HTTP smoke успешны.
+Smoke проверяет SSR-контент, параметры/пагинацию, 404, статусы, dangerous URLs,
+HTML/JSON-LD payload, sitemap >100 событий, отсутствие SITE_URL, API outage,
+no-store и немедленные publication changes. Fixtures находятся только в tests/.
+Backend 384 passed и compileall, CRA 33 tests/build. Сначала loopback pytest
+потребовал разрешения локального сокета, после повторного запуска проверка успешна.
+Защищённый Compose runner в config-only остановился из-за недоступного локального
+Docker socket, контейнеры PR-11 не создавались. Browser access host недоступен,
+desktop/mobile browser QA не подтверждена. Адаптивная сетка проверена по исходникам.
+Preflight также сохраняет известное ограничение распознавания .git-файла worktree.
+PR-8 остаётся BLOCKED, PR-9 TZ-safe редактор и PR-12 production routing ожидают реализации.
 
 Next.js **16.4.6**, React/React DOM **19.3.1**, TypeScript **5.9.3**.
 Docker и `.nvmrc`: Node **24.22.3** LTS; Docker base image закреплён digest.
@@ -31,8 +88,8 @@ npm run dev
   только путь текущего origin. Клиент подготовлен, но главная его не вызывает.
   Reverse proxy `/api` ещё не реализован: без PR-12 запросы браузера по нему
   не будут работать. Здесь нет rewrite/proxy на произвольный URL и изменений CORS.
-- `GET /health` Next.js — собственный liveness, не проверка БД/готовности FastAPI.
-  Главная проверяет `/health` FastAPI серверным GET без кеша, credentials и redirects,
+- `GET /health` Next.js — собственный liveness. Каталог читает `/events/` и `/categories/`,
+  страницы событий читают `/events/{id}` серверным GET без кеша, credentials и redirects,
   с таймаутом 5 секунд. Внутренние ошибки/адреса не выводятся посетителю.
 
 ## Проверки и standalone
@@ -129,22 +186,19 @@ shell-переопределения PR10_TEST_* больше не исполь�
 Второй скрипт строит отдельный образ с игнорируемым .env-canary и проверяет
 каждый сохранённый слой, non-root и отсутствие backend credentials в image config.
 
-## Границы и следующие этапы
+## История проверок PR-10 и дальнейшие этапы
 
-- `src/app`: layout, главная Server Component, fallback ошибок, not-found,
-  liveness. CSS адаптивен, внешние шрифты/изображения не загружаются.
+- PR-10 подготовил layout, главную Server Component, fallback ошибок, not-found
+  и liveness. Текущее расширение каталога описано в начале этого документа.
 - `src/api`: разделённые server-only/browser клиенты и типы фактических схем
   FastAPI. Публичные клиенты используют только GET /health и /events/.
-- PR-11: каталог/страница события/фильтры, окончательные metadata/OG,
-  sitemap/robots/JSON-LD, политика кеша и инвалидации публикаций. Расширять
-  app routes и api; окончательные id/slug маршруты ждут R11. Сейчас нет
-  фиктивных событий, ссылок на неготовый каталог, ISR или SEO-разметки Event.
+- PR-11 реализует каталог и SEO с числовыми id. R11 о slug открыт.
 - PR-12: production Nginx, /api, CRA /admin, uploads и trusted proxy.
 - PR-13: CI всех приложений. Текущий backend workflow не проверяет Next.js.
 - PR-8 **BLOCKED**: семантика старых datetime не подтверждена. Даты в типах —
   непреобразуемые строки; они не отображаются на главной. TZ-safe редактор — PR-9.
 
-Подтверждено локально: public ci/typecheck/6 API tests/build/standalone smoke;
+Исторические проверки PR-10: public ci/typecheck/6 API tests/build/standalone smoke;
 реальная связка public + FastAPI + PostgreSQL 17, health/localhost/non-root,
 контролируемый отказ backend; image-layer canary и bundle isolation.
 CRA: 33 Jest tests + build. Backend: 86 целевых publication tests.
