@@ -1,5 +1,28 @@
 # Единый локальный origin — PR-12
 
+## CI всех приложений — PR-13
+
+`.github/workflows/backend-ci.yml` теперь содержит общий Application checks:
+на каждом PR в master, push в master и вручную. Path filters убраны, чтобы
+изменение frontend/deploy не обходило проверки; прежний job backend-tests сохранён.
+CRA: Node 24.22.3, lockfile install, Jest и CI build с PUBLIC_URL=/admin.
+Public: тот же Node, typecheck, unit tests, standalone build и HTTP smoke.
+После этих jobs gateway-smoke на отдельном GitHub-hosted Ubuntu 24.04 runner
+проверяет изоляцию, собирает FastAPI/Next/Nginx+CRA и запускает полный PG17 smoke.
+Нет production secrets, публикации images, SSH, deploy и доступа к реальной БД.
+Job timeouts и cancellation предыдущего запуска той же ветки ограничивают затраты.
+
+Runner на macOS выбирает desktop-linux, на Linux default; явный
+`bash deploy/tests/gateway-smoke.sh --context default` используется в CI.
+Оба варианта проверяют точный локальный Unix socket и игнорируют внешний
+DOCKER_HOST/CONTEXT. Существующие network/subnet вызывают отказ без изменений.
+На локальном компьютере занятый subnet нужно сохранить; используйте свежий
+GitHub-hosted runner для smoke, а не удаляйте чужую сеть ради теста.
+
+Диагностика общего VPS и неактивный план предпросмотра: [STAGING_PLAN.md](STAGING_PLAN.md).
+
+## Маршрутизация
+
 Nginx обслуживает Next.js, CRA и FastAPI по одному origin. Команды ниже
 предназначены для локального окружения. Production остаётся BLOCKED до
 утверждения домена, сертификата и дополнительной защиты админки по D-011.

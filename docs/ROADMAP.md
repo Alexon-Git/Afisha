@@ -58,7 +58,9 @@
 - [ ] Админка: организаторы, статусы, явная отметка «проверено».
 - [x] **PR-5. DONE** — PR #21 merged, `d4c5b23`, CI merge-коммита success. C2–C5 и исправление нормализации URL изображений включены. Backend: 228 passed; React: 12 passed; production build успешен.
 - [ ] **PR-12. IN REVIEW** — `feature/unified-nginx-routing` от `7aa6211`: opt-in Nginx, CRA `/admin`, Next `/`, FastAPI `/api`, uploads read-only. Точный trusted IP только отдельным overlay, base сохраняет --no-proxy-headers. Локальные проверки/ограничения: `deploy/README.md` и последние записи контекста. Production BLOCKED: домен/HTTPS/допзащита админки требуют владельца. Merge/deploy не выполнялись.
-- [ ] **PR-13.** CI: сборка всех приложений, smoke-тесты.
+- [ ] **PR-13. IN REVIEW** — draft PR #27: общий CI FastAPI/CRA/Next.js/Nginx,
+  code head `8ff7a0e`, run 45018323444 success (все 4 jobs, полный gateway smoke).
+  Независимое review ещё требуется; merge/deploy не выполнялись.
 
 **Критерий выхода:** редактор ведёт каталог без разработчика.
 

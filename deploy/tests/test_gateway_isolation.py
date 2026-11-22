@@ -7,11 +7,23 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from gateway_smoke import GatewaySmoke, check, physical_ipv4_addresses
+from gateway_smoke import GatewaySmoke, check, physical_ipv4_addresses, main
 from test_compose_isolation import CONFLICTS
 
 
 class GatewayIsolationTests(unittest.TestCase):
+    def test_explicit_ci_context_is_forwarded_and_remote_context_is_rejected(self):
+        with patch('sys.argv', ['gateway_smoke.py', '--context', 'default', '--config-only']), \
+                patch('gateway_smoke.GatewaySmoke') as factory, patch('gateway_smoke.check') as run:
+            main()
+        self.assertEqual(factory.call_args.args[1], 'default')
+        run.assert_called_once_with(factory.return_value, True)
+        with patch('sys.argv', ['gateway_smoke.py', '--context', 'production-remote']), \
+                patch('gateway_smoke.GatewaySmoke') as factory:
+            with self.assertRaises(SystemExit):
+                main()
+        factory.assert_not_called()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='afisha-pr12-unit-', dir='/tmp')
         self.addCleanup(self.temp.cleanup)

@@ -50,7 +50,7 @@ class IsolationTests(unittest.TestCase):
             self.assertTrue(set(CONFLICTS).isdisjoint(run.call_args.kwargs['env']))
             command = run.call_args.args[0]
             self.assertIn('--context',command)
-            self.assertIn('desktop-linux',command)
+            self.assertIn(self.smoke.context,command)
             self.assertNotIn('production-remote',command)
             self.assertEqual(config['volumes']['afisha_db_data']['name'],self.smoke.volume)
             self.assertEqual(config['services']['backend']['volumes'][0]['source'],str(self.smoke.uploads))
@@ -60,18 +60,21 @@ class IsolationTests(unittest.TestCase):
         calls=[]
         def inspect(*args,**kwargs):
             calls.append(args)
-            return json.dumps([{'Name':'desktop-linux','Endpoints':{'docker':{'Host':'tcp://production.invalid:2376'}}}])
+            return json.dumps([{'Name':self.smoke.context,'Endpoints':{'docker':{'Host':'tcp://production.invalid:2376'}}}])
         with patch.object(self.smoke,'run',side_effect=inspect):
             with self.assertRaises(RuntimeError): check(self.smoke)
-        self.assertEqual(calls,[('context','inspect','desktop-linux')])
+        self.assertEqual(calls,[('context','inspect',self.smoke.context)])
 
     def test_verified_socket_is_pinned_for_subsequent_commands(self):
-        endpoint='unix://'+str(Path.home()/'.docker/run/docker.sock')
-        context=[{'Name':'desktop-linux','Endpoints':{'docker':{'Host':endpoint}}}]
-        with patch.object(self.smoke,'run',side_effect=[json.dumps(context),json.dumps({'OSType':'linux'})]), patch.object(Path,'is_socket',return_value=True):
-            self.smoke.local_daemon()
-        self.assertEqual(self.smoke.docker[-2:],['--host',endpoint])
-        self.assertNotIn('--context',self.smoke.docker)
+        for name, endpoint in [('desktop-linux', 'unix://'+str(Path.home()/'.docker/run/docker.sock')),
+                               ('default', 'unix:///var/run/docker.sock')]:
+            with self.subTest(context=name):
+                self.smoke.context = name
+                context=[{'Name':name,'Endpoints':{'docker':{'Host':endpoint}}}]
+                with patch.object(self.smoke,'run',side_effect=[json.dumps(context),json.dumps({'OSType':'linux'})]), patch.object(Path,'is_socket',return_value=True):
+                    self.smoke.local_daemon()
+                self.assertEqual(self.smoke.docker[-2:],['--host',endpoint])
+                self.assertNotIn('--context',self.smoke.docker)
 
     def test_real_config_only_cli_with_conflicts_uses_local_daemon_and_cleans_temp(self):
         before=set(Path('/tmp').glob('afisha-pr10-*'))
