@@ -22,20 +22,31 @@
   isolation tests passed. Gateway suite: 5 passed, 1 безопасно BLOCKED —
   подсеть 172.30.123.0/29 занята существующим локальным preview project.
   Полный gateway smoke не запускался после отказа config-only; preview сохранён.
-  Новый Linux CI ещё требуется проверить на head PR, не считать его зелёным.
+  Linux CI 45018323444 для code head `8ff7a0e` success: все 4 jobs;
+  10+6 isolation tests, полный gateway smoke и scoped cleanup passed.
+  Draft PR #27: https://github.com/Alexon-Git/Afisha/pull/27;
+  независимое review ещё не выполнено.
 - Известный preflight не распознаёт .git-file worktree; Git проверен отдельно.
   Python syntax (deploy/public test runners) и git diff --check успешны.
 - VPS проверен по SSH только read-only: 9 running, 2 stopped другого проекта,
   свободно 2 GiB; RAM 957 MiB/available ~384 MiB, swap 845 MiB/1 GiB.
   Images/volumes все referenced, build cache shared/private 316.8 MB/0 B.
   Journal 216 MB, APT cache ~176 MiB; backups обеих баз есть за 21.11
-  (содержимое и restore сейчас не проверялись). Ничего не удалялось.
+  (содержимое и restore сейчас не проверялись). Затем владелец явно разрешил
+  APT clean и vacuum архивных journal старше 7 суток: выполнены только эти
+  операции. Journal 216→56 MiB, APT cache ~176 MiB→20 KiB, по df свободно
+  2,057,203,712→2,409,365,504 bytes (+335.85 MiB), занято 80→76%.
+  Все 9 рабочих containers сохранены, DB/Redis healthy; images 7, volumes 8,
+  размеры backup-каталогов не изменились. Перезапусков/deploy не было.
 - `deploy/STAGING_PLAN.md`: границы согласуемой очистки, нехватка ресурсов,
   сборка вне VPS, отдельные DB/uploads/networks, Caddy ingress и rollback.
   Caddy находится в двух сетях ботов; новый proxy-hop требует отдельной
   exact-IP/scheme/rate-limit проверки. Production config не менялся.
-- PR-8 BLOCKED, PR-9 не готов. Следующий шаг — проверить CI нового PR и
-  независимое review; без merge/deploy. Очистка VPS требует отдельного согласия.
+- Локальный preview, существовавший до задачи, сохранён: http://127.0.0.1:58080.
+  GET /api/health, /, /events, /admin/login — 200. Визуальная/browser QA
+  не выполнялась; это не новый deploy ветки PR-13.
+- PR-8 BLOCKED, PR-9 не готов. Следующий шаг — независимое review PR #27;
+  без merge/deploy. Дальнейшая очистка VPS требует нового согласования.
 
 
 ## Прочитать перед действиями
