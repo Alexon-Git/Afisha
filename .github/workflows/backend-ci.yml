@@ -1,23 +1,23 @@
-name: Backend checks
+name: Application checks
 
 on:
   push:
     branches: [master]
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci.yml"
   pull_request:
     branches: [master]
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: application-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,3 +34,65 @@ jobs:
       - name: Run tests
         working-directory: backend
         run: python -m pytest -q
+
+  admin-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      CI: "true"
+      PUBLIC_URL: /admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.3"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm test -- --watchAll=false --runInBand
+      - run: npm run build
+
+  public-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: public
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_API_BASE: /api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.3"
+          cache: npm
+          cache-dependency-path: public/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run smoke
+
+  gateway-smoke:
+    needs: [backend-tests, admin-tests, public-tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check Docker and Compose
+        run: |
+          docker version
+          docker compose version
+      - name: Test runner isolation
+        run: |
+          python -m unittest discover -s public/tests -p test_compose_isolation.py -v
+          python -m unittest discover -s deploy/tests -p test_gateway_isolation.py -v
+      - name: Build and smoke FastAPI, Next.js and Nginx with CRA
+        run: bash deploy/tests/gateway-smoke.sh --context default

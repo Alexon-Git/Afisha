@@ -10,6 +10,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
+LOCAL_CONTEXT = 'desktop-linux' if sys.platform == 'darwin' else 'default'
 
 
 def require(condition, message):
@@ -18,7 +19,7 @@ def require(condition, message):
 
 
 class Smoke:
-    def __init__(self, directory, context="desktop-linux"):
+    def __init__(self, directory, context=LOCAL_CONTEXT):
         self.directory = Path(directory).resolve()
         self.uploads = self.directory / "uploads"
         self.uploads.mkdir()
@@ -201,7 +202,7 @@ def check(smoke, config_only=False):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config-only', action='store_true')
-    parser.add_argument('--context', choices=('desktop-linux','default'), default='desktop-linux')
+    parser.add_argument('--context', choices=('desktop-linux','default'), default=LOCAL_CONTEXT)
     args = parser.parse_args()
     # Ignore inherited TMPDIR; never reuse a user uploads directory.
     with tempfile.TemporaryDirectory(prefix='afisha-pr10-',dir='/tmp') as directory:

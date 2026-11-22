@@ -13,7 +13,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'public/tests'))
-from compose_smoke import Smoke, require, check
+from compose_smoke import Smoke, require, check, LOCAL_CONTEXT
 
 STARTUP = '''python -c 'import ipaddress, os; ipaddress.IPv4Address(os.environ["TRUSTED_NGINX_IP"])' &&
 alembic upgrade head && python create_admin.py &&
@@ -36,7 +36,7 @@ def physical_ipv4_addresses(ifconfig):
 
 
 class GatewaySmoke(Smoke):
-    def __init__(self, directory, context='desktop-linux'):
+    def __init__(self, directory, context=LOCAL_CONTEXT):
         super().__init__(directory, context)
         self.project = self.project.replace('pr10', 'pr12')
         self.volume = self.project + '_data'
@@ -202,9 +202,10 @@ if(r.status!==(i<3?401:429))process.exit(1);
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config-only', action='store_true')
+    parser.add_argument('--context', choices=('desktop-linux', 'default'), default=LOCAL_CONTEXT)
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='afisha-pr12-', dir='/tmp') as directory:
-        check(GatewaySmoke(directory), args.config_only)
+        check(GatewaySmoke(directory, args.context), args.config_only)
 
 
 if __name__ == '__main__':

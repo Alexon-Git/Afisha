@@ -9,6 +9,39 @@
 > и контекст предыдущих решений. Не подменяй им повторное чтение
 > затрагиваемых файлов и текущего GitHub Actions.
 
+## PR-13 — общий CI и диагностика staging (2026-11-22, до review)
+
+- Изолированная ветка `feature/unified-ci-smoke`, `.worktrees/afisha-pr13`,
+  база master `38ae10e`; PR #26 merged, master backend CI 45017002695 success.
+- Общий workflow в прежнем backend-ci.yml без path filters: backend-tests,
+  admin-tests (PUBLIC_URL=/admin), public-tests (typecheck/unit/build/HTTP smoke),
+  затем gateway-smoke (сборка FastAPI/Next/Nginx+CRA и новая PG17).
+  Python 3.11, Node 24.22.3, Ubuntu 24.04; read-only GitHub permissions,
+  timeouts/concurrency; secrets, push images и deploy отсутствуют.
+- Smoke runners поддерживают проверенный local context default на Linux,
+  desktop-linux на macOS. Чужие DOCKER_HOST/CONTEXT и данные не наследуются.
+  Регрессии проверяют оба Unix sockets и отказ remote context.
+- Локально: backend pytest 384 passed (328 warnings); CRA 36 passed и CI build;
+  public 13 passed, typecheck/build/standalone HTTP smoke success; 10 PR-10
+  isolation tests passed. Gateway suite: 5 passed, 1 безопасно BLOCKED —
+  подсеть 172.30.123.0/29 занята существующим локальным preview project.
+  Полный gateway smoke не запускался после отказа config-only; preview сохранён.
+  Новый Linux CI ещё требуется проверить на head PR, не считать его зелёным.
+- Известный preflight не распознаёт .git-file worktree; Git проверен отдельно.
+  Python syntax (deploy/public test runners) и git diff --check успешны.
+- VPS проверен по SSH только read-only: 9 running, 2 stopped другого проекта,
+  свободно 2 GiB; RAM 957 MiB/available ~384 MiB, swap 845 MiB/1 GiB.
+  Images/volumes все referenced, build cache shared/private 316.8 MB/0 B.
+  Journal 216 MB, APT cache ~176 MiB; backups обеих баз есть за 21.11
+  (содержимое и restore сейчас не проверялись). Ничего не удалялось.
+- `deploy/STAGING_PLAN.md`: границы согласуемой очистки, нехватка ресурсов,
+  сборка вне VPS, отдельные DB/uploads/networks, Caddy ingress и rollback.
+  Caddy находится в двух сетях ботов; новый proxy-hop требует отдельной
+  exact-IP/scheme/rate-limit проверки. Production config не менялся.
+- PR-8 BLOCKED, PR-9 не готов. Следующий шаг — проверить CI нового PR и
+  независимое review; без merge/deploy. Очистка VPS требует отдельного согласия.
+
+
 ## PR-12 — единый локальный Nginx gateway (2026-11-22, до merge)
 
 - Работа продолжена в существующем `.worktrees/afisha-pr12`, ветка
