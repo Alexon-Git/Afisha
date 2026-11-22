@@ -12,7 +12,17 @@
 `docs/DEVELOPMENT_CONTEXT.md` → `docs/DECISIONS.md` →
 `backend/MIGRATIONS.md`.
 
-## Актуальная передача PR-11 (2026-11-17)
+## PR #25 — повторное review category slug (2026-11-22)
+
+- Ветка `feature/public-event-catalog-seo`: исправлена несовместимость category
+  с backend slug (`_`, допустимые сочетания разделителей, длина до 150).
+- Добавлены регрессии query/API и standalone-формы для `business_meetings`,
+  негативные случаи URL/traversal/control chars/длины. Node 24.22.3: целевые
+  2 passed, полный public suite 13 passed, typecheck/build/HTTP smoke успешны.
+- Изменены только frontend parser, три тестовых файла и два документа контекста.
+  Следующий шаг — повторное review PR #25. Merge/deploy не выполнялись.
+
+## Передача PR-11 (2026-11-17)
 
 - База `90b19db`, PR #24 merged, CI merge success. Ветка
   `feature/public-event-catalog-seo`, `.worktrees/afisha-pr11`.

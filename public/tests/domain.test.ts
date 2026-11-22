@@ -29,6 +29,24 @@ test('query validation rejects invalid, duplicated and unbounded input', () => {
   assert.equal(eventId('2147483648'), null);
 });
 
+test('category query matches backend slug characters and storage length', () => {
+  for (const category of ['business_meetings', 'business-meetings', '_business--meetings_', '-', '_', 'a'.repeat(150)]) {
+    const result = catalogQuery({ category });
+    assert.equal(result.error, '', category);
+    assert.equal(result.filters.category, category);
+    assert.equal(new URL(catalogLink(result.filters), 'http://test').searchParams.get('category'), category);
+  }
+  for (const category of ['a'.repeat(151), 'a'.repeat(10000), '../admin', '/admin/events', 'https://example.com',
+    '//example.com', 'business/meetings', 'business\\meetings', 'business%5fmeetings', '%2e%2e',
+    'business?limit=100', 'business#meetings', 'business meetings', 'Business', 'бизнес',
+    'business\n', '\tbusiness', 'business\r', 'business\0', 'business\x7f']) {
+    const result = catalogQuery({ category });
+    assert.ok(result.error, JSON.stringify(category));
+    assert.equal(result.filters.category, undefined);
+  }
+  assert.ok(catalogQuery({ category: ['business_meetings', 'meetings'] }).error);
+});
+
 test('untrusted links and images fail closed', () => {
   for (const value of ['javascript:alert(1)', 'data:text/html,a', '//example.com', 'https://user:pass@example.com', 'https://a.com/\n', 'https:\\example.com']) assert.equal(externalUrl(value), null);
   assert.equal(externalUrl('https://example.com/event'), 'https://example.com/event');

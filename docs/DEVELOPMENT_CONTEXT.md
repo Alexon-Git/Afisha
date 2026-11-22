@@ -9,6 +9,17 @@
 > и контекст предыдущих решений. Не подменяй им повторное чтение
 > затрагиваемых файлов и текущего GitHub Actions.
 
+## PR #25 — исправление category slug (2026-11-22)
+
+- В `feature/public-event-catalog-seo` frontend-валидация category согласована
+  с backend: непустой slug из `[a-z0-9_-]`, максимум 150 символов по колонке БД.
+  Существующие slug не изменяются; URL, traversal, управляющие символы,
+  повторные параметры и превышение длины отклоняются.
+- Node 24.22.3: два целевых теста и полный public suite (**13 passed**),
+  typecheck, production build, standalone SSR/HTTP smoke успешны. Smoke проверяет
+  наличие и выбор `business_meetings` в форме и передачу category в GET `/events/`.
+  Backend/БД не менялись, backend pytest не повторялся. Ожидает повторного review.
+
 ## PR-11 — публичный каталог и SEO (2026-11-17)
 
 - База master `90b19db`, PR #24 merged, merge CI 44025620978 success.

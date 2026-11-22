@@ -15,6 +15,7 @@ async function listen(server) {
 let events = fixtureEvents();
 let unavailable = false;
 const requests = [];
+const underscoreCategory = { id: 2, name: 'Деловые встречи', slug: 'business_meetings', is_active: true };
 const backend = createServer((request, response) => {
   const url = new URL(request.url, 'http://test');
   requests.push(url);
@@ -35,7 +36,7 @@ const backend = createServer((request, response) => {
     const event = visible.find(item => item.id === Number(url.pathname.split('/')[2]));
     if (!event) response.writeHead(404);
     response.end(JSON.stringify(event || { detail: 'Event not found' }));
-  } else if (url.pathname === '/categories/') response.end(JSON.stringify([fixture.category]));
+  } else if (url.pathname === '/categories/') response.end(JSON.stringify([fixture.category, underscoreCategory]));
   else if (url.pathname === '/health') response.end(JSON.stringify({ status: 'healthy' }));
   else { response.writeHead(404); response.end('{}'); }
 });
@@ -102,6 +103,10 @@ try {
   assert.match(list, /page=3/);
   assert.match(list, /category=meetings/);
   assert.ok(requests.some(url => ['date_from', 'date_to', 'category', 'sort', 'page'].every(key => url.searchParams.has(key))));
+  assert.match(list, /<option value="business_meetings">Деловые встречи<\/option>/);
+  const underscoreList = await html(base, '/events?category=business_meetings');
+  assert.match(underscoreList, /<option value="business_meetings" selected="">Деловые встречи<\/option>/);
+  assert.ok(requests.some(url => url.pathname === '/events/' && url.searchParams.get('category') === 'business_meetings'));
   for (const value of ['today', 'tomorrow', 'weekend']) {
     await html(base, `/events?date=${value}`);
     assert.ok(requests.some(url => url.searchParams.get('date') === value));

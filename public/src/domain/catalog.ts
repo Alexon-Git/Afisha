@@ -21,7 +21,8 @@ export function catalogQuery(search: Search) {
   }
   if (filters.date_from && filters.date_to && filters.date_from > filters.date_to) error = 'Начало периода должно быть раньше окончания.';
   if (typeof search.category === 'string' && search.category) {
-    if (/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(search.category) && search.category.length <= 100) filters.category = search.category;
+    // Match backend slug normalization and the categories.slug VARCHAR(150).
+    if (!/[^a-z0-9_-]/.test(search.category) && search.category.length <= 150) filters.category = search.category;
     else error = 'Некорректная категория.';
   }
   if (typeof search.sort === 'string' && search.sort) {
