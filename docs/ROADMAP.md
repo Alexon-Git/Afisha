@@ -47,7 +47,7 @@
 ## Этап 3. Публичный сайт на Next.js — TODO
 
 - [x] **PR-10. DONE** — PR #24 merged, master `90b19db`, CI merge 44025620978 success. Next.js foundation и защищённый локальный Compose smoke включены.
-- [ ] **PR-11. IN REVIEW** — `feature/public-event-catalog-seo` от `90b19db`. Главная/каталог/event по числовому ID, серверные фильтры/пагинация, dynamic/no-store, canonical/OG/Twitter/robots/sitemap при валидном SITE_URL, JSON-LD только для aware datetime. Публичный organizer summary содержит только name. Public 11 tests ×3 TZ/build/standalone, backend 384 tests/compileall, CRA 33 tests/build успешны. Docker socket и browser access host недоступны, контейнерная и mobile/browser QA PR-11 не подтверждены. PR-8 BLOCKED, гарантированная семантика будущего абсолютного момента остаётся зависимой от него. Без merge/deploy.
+- [x] **PR-11. DONE** — PR #25 merged, master `7aa6211`, merge CI 44993369781 success. Каталог/SSR/SEO и fix category slug включены; public 13 tests/typecheck/build/standalone успешны. Browser/mobile QA и ограничения PR-8 остаются открыты.
 - [ ] Проверка HTML без JavaScript, кеш и обновление страниц после правок в админке.
 - [ ] Мобильная адаптивность и доступность.
 
@@ -57,7 +57,7 @@
 
 - [ ] Админка: организаторы, статусы, явная отметка «проверено».
 - [x] **PR-5. DONE** — PR #21 merged, `d4c5b23`, CI merge-коммита success. C2–C5 и исправление нормализации URL изображений включены. Backend: 228 passed; React: 12 passed; production build успешен.
-- [ ] **PR-12.** Nginx: Next.js, CRA в `/admin` (`PUBLIC_URL`, `basename`), `/api/`, загрузки; не допустить конфликта путей `/static`.
+- [ ] **PR-12. IN REVIEW** — `feature/unified-nginx-routing` от `7aa6211`: opt-in Nginx, CRA `/admin`, Next `/`, FastAPI `/api`, uploads read-only. Точный trusted IP только отдельным overlay, base сохраняет --no-proxy-headers. Локальные проверки/ограничения: `deploy/README.md` и последние записи контекста. Production BLOCKED: домен/HTTPS/допзащита админки требуют владельца. Merge/deploy не выполнялись.
 - [ ] **PR-13.** CI: сборка всех приложений, smoke-тесты.
 
 **Критерий выхода:** редактор ведёт каталог без разработчика.

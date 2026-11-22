@@ -1,0 +1,3 @@
+# Fail closed until the owner chooses VPN, allowlist, Basic Auth or MFA.
+# Copy/mount as /etc/nginx/afisha/production-admin-access.conf after approval.
+deny all;

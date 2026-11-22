@@ -12,6 +12,54 @@
 `docs/DEVELOPMENT_CONTEXT.md` → `docs/DECISIONS.md` →
 `backend/MIGRATIONS.md`.
 
+## PR-12 — единый локальный Nginx gateway (2026-11-22, до merge)
+
+- Работа продолжена в существующем `.worktrees/afisha-pr12`, ветка
+  `feature/unified-nginx-routing`, база `7aa62117043b680f7160e4313381bf9621ffff21`.
+  PR #25 merged; merge CI 44993369781 success. Старые worktrees/stash сохранены.
+- Nginx `/`/events/robots/sitemap → Next, `/admin` → CRA (basename и PUBLIC_URL),
+  `/api` → FastAPI со снятием префикса, uploads → общий read-only mount.
+  CRA использует same-origin /api, старый публичный route и demo credentials
+  убраны из UI. JWT storage и backend business code/модели/миграции не менялись.
+- Новый Nginx image: pinned Node/Nginx, non-root/read-only/cap_drop ALL,
+  все temp dirs в /tmp. API/admin HTML no-store, assets immutable, body 6 МиБ.
+  Docker context не включает env, node_modules, build и локальные настройки.
+- Base Compose и afisha_db_data не менялись. Gateway и trusted-proxy — opt-in
+  overlays. Nginx имеет один точный доверенный IPv4 в отдельной internal сети;
+  launcher отвергает wildcard/subnet. Nginx заменяет XFF на remote_addr,
+  очищает Forwarded/X-Real-IP и альтернативные forwarded host/port.
+  Без trusted overlay base остаётся --no-proxy-headers с общим source bucket.
+- До прерывания: CRA npm ci, 36 Jest tests и PUBLIC_URL=/admin build; public
+  npm ci, typecheck, 13 tests, build и standalone smoke успешны. Повторно эти
+  длительные проверки не запускались: соответствующие исходники не менялись.
+- Финальный gateway smoke: PostgreSQL 17 с чистыми миграциями 0001–0003,
+  nginx -t, health, SSR/catalog/detail/hidden 404, Next/CRA JS/CSS, refresh login,
+  login/me/CRUD/categories/upload/verify/status/publication через /api, query и
+  slash redirects, реальные PNG и body 413, no-store и отсутствие старого API
+  домена в CRA bundle. Пустой SITE_URL: noindex и sitemap 503 ожидаемы.
+- Spoofed XFF/Forwarded/X-Real-IP не меняют bucket: клиент .5 получает 429 с
+  Retry-After после 3 отказов, .6 сохраняет 401. Peer public .4 при прямом
+  обращении к backend .3 с поддельными заголовками также получает 429.
+  Это проверяет точный IP, включая отказ доверять другому пиру того же subnet.
+- Runner расширяет исходный PR-10 без его изменения: clean env, pin local Unix
+  socket, frozen validated JSON, новые credentials/project/volume/uploads,
+  проверка коллизий/subnet до build/up. Isolation tests: 5 новых + 10 прежних
+  passed. Фактические port bindings всех сервисов только 127.0.0.1; GET gateway
+  с хоста проходит, TCP к backend/DB через физический LAN IP отвергается.
+  Для host publishing Nginx имеет отдельную ingress-сеть; связь с backend
+  остаётся через internal gateway и точный IP. Удалённый скан production
+  не выполнялся. Тестовые containers/networks/volume
+  удалены, images оставлены. Production/существующая БД не использовались.
+- Browser host недоступен: браузерная/mobile QA не подтверждена; login/logout
+  проверены Jest, маршруты и assets — HTTP. Backend pytest локально не повторялся:
+  backend код не менялся, реальные API проверены smoke; CI проверяется на head PR.
+- **Production BLOCKED:** владелец должен утвердить домен/SITE_URL, HTTPS certificate
+  и допзащиту admin/login по D-011. TLS template и policy examples не активны,
+  production include отсутствует до явной подготовки. Права реального uploads,
+  firewall и фактические proxy IP на сервере требуют отдельной проверки.
+  PR-8 остаётся BLOCKED, PR-9 UI/TZ и PR-13 CI не выполнялись. Инструкции и
+  команды: `deploy/README.md`. Следующий шаг — независимое review, без merge/deploy.
+
 ## PR #25 — повторное review category slug (2026-11-22)
 
 - Ветка `feature/public-event-catalog-seo`: исправлена несовместимость category

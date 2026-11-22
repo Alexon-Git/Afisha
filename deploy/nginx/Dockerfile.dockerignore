@@ -1,0 +1,14 @@
+**
+!frontend
+!frontend/**
+!deploy
+!deploy/nginx
+!deploy/nginx/**
+**/node_modules
+**/build
+**/.env*
+**/.git
+**/.codex
+**/graphify-out
+**/*.log
+**/coverage
