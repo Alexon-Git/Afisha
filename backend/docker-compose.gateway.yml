@@ -1,0 +1,49 @@
+# Opt-in local HTTP gateway. Combine after base + docker-compose.public.yml.
+services:
+  backend:
+    networks:
+      afisha:
+      gateway:
+        ipv4_address: ${BACKEND_GATEWAY_IP:-172.30.123.3}
+  public:
+    environment:
+      SITE_URL: ${SITE_URL:-}
+    networks:
+      afisha:
+      gateway:
+        ipv4_address: ${PUBLIC_GATEWAY_IP:-172.30.123.4}
+  nginx:
+    build:
+      context: ..
+      dockerfile: deploy/nginx/Dockerfile
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
+    volumes:
+      - type: bind
+        source: ${UPLOADS_PATH:-./app/static/uploads}
+        target: /srv/uploads
+        read_only: true
+    depends_on:
+      backend:
+        condition: service_healthy
+      public:
+        condition: service_healthy
+    networks:
+      gateway:
+        ipv4_address: ${NGINX_PROXY_IP:-172.30.123.2}
+      ingress:
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+networks:
+  ingress:
+  gateway:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${GATEWAY_SUBNET:-172.30.123.0/29}

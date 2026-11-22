@@ -1,0 +1,13 @@
+# Explicit opt-in after running the local gateway smoke. Never trust a subnet.
+services:
+  backend:
+    environment:
+      TRUSTED_NGINX_IP: ${NGINX_PROXY_IP:-172.30.123.2}
+    command:
+      - sh
+      - -ec
+      - >-
+        python -c 'import ipaddress, os; ipaddress.IPv4Address(os.environ["TRUSTED_NGINX_IP"])' &&
+        alembic upgrade head && python create_admin.py &&
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8039
+        --proxy-headers --forwarded-allow-ips="$$TRUSTED_NGINX_IP"

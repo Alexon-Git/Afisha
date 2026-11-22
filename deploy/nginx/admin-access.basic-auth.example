@@ -1,0 +1,4 @@
+# Inactive example. Enable only after the owner chooses this protection method.
+# Supply a separately managed password file. No default credentials are provided.
+auth_basic "Afisha editorial access";
+auth_basic_user_file /etc/nginx/secrets/admin.htpasswd;

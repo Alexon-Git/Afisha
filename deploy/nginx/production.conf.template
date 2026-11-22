@@ -1,0 +1,12 @@
+# Not loaded by the local image. Replace all tokens and supply a real certificate.
+server {
+    listen 8443 ssl;
+    server_name __APPROVED_DOMAIN__;
+    ssl_certificate __CERTIFICATE_PATH__;
+    ssl_certificate_key __PRIVATE_KEY_PATH__;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    # Generate from routes.conf with admin-access.conf replaced by
+    # production-admin-access.conf, then supply an owner-approved policy.
+    # Both required files are absent in the local image.
+    include /etc/nginx/afisha/production-routes.conf;
+}

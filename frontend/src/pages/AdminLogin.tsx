@@ -24,7 +24,7 @@ const AdminLogin: React.FC = () => {
       // Валидация токена перед переходом
       await authApi.me();
       toast.success('Успешный вход в систему!');
-      navigate('/admin');
+      navigate('/');
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
       let message = 'Ошибка входа в систему';
@@ -114,20 +114,6 @@ const AdminLogin: React.FC = () => {
             </div>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Тестовые данные</span>
-              </div>
-            </div>
-            <div className="mt-4 text-center text-sm text-gray-600">
-              <p>Логин: admin</p>
-              <p>Пароль: admin123</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

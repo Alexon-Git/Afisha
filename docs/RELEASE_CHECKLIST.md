@@ -3,6 +3,21 @@
 **Дата:** 2026-11-12. **Статус:** все пункты не выполнены, если не отмечено иное.
 Чекбокс ставится только после проверки с доказательством (команда, ссылка на CI, скриншот). Задачи T1–T19: `TECHNICAL_PLAN.md`. Не всё здесь — P0, но запуск без каждого пункта запрещён, пока владелец не зафиксировал исключение.
 
+## Локальное подтверждение PR-12 (2026-11-22)
+
+- [x] CRA 36 Jest tests/build PUBLIC_URL=/admin; public 13 tests/typecheck/build/standalone
+- [x] Изолированный PG17 gateway smoke: nginx -t, все маршруты/JS/CSS/PNG, hidden 404, API login/CRUD/editorial, 413, no-store, query/redirect
+- [x] Точный trusted proxy: spoofed XFF не обходит лимит, два независимых source buckets, прямой недоверенный peer того же subnet не может подменить IP
+- [x] 5 gateway isolation + 10 исходных runner regressions; localhost-only actual bindings + host gateway GET/LAN refusal, очистка только созданных тестовых ресурсов
+- [ ] Проверить то же на реальном сервере: firewall, proxy IP и права uploads
+- [ ] Утвердить домен/SITE_URL, получить и проверить HTTPS certificate
+- [ ] Выбрать и проверить дополнительную защиту admin/login (D-011)
+- [ ] Browser/mobile QA (browser host недоступен)
+
+Это локальные доказательства, не production readiness. Production-чекбоксы ниже
+не закрываются локальным smoke. Base --no-proxy-headers сохранён; opt-in доверие
+описано в `deploy/README.md`. PR-8 остаётся BLOCKED, PR-13 не начат.
+
 ## 1. Безопасность авторизации и API
 - [ ] Rate limiting `/auth/login` в `master`, тесты лимита, сброса, конкурентности, недоступного хранилища (T1)
 - [ ] Миграция `0002_login_attempts` применена на PostgreSQL (чистая БД и копия старой схемы)

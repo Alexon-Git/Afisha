@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-import { PRODUCTION_API_ORIGIN } from '../config/api';
+import { API_BASE_URL } from '../config/api';
 
 const api = axios.create({
-  baseURL: PRODUCTION_API_ORIGIN,
+  baseURL: API_BASE_URL,
 });
 
 // Интерцептор для добавления токена авторизации
@@ -135,6 +135,11 @@ export const eventsApi = {
   getAdminAll: (page = 1, limit = 50) =>
     api.get<PaginatedEventsResponse>('/admin/events/', { params: { page, limit } }),
   getAdminById: (id: number) => api.get<Event>(`/admin/events/${id}`),
+  verify: (id: number) => api.post<Event>(`/admin/events/${id}/verify`),
+  changePublication: (id: number, publication_status: 'draft' | 'published' | 'archived') =>
+    api.patch<Event>(`/admin/events/${id}/publication`, { publication_status }),
+  changeStatus: (id: number, event_status: 'scheduled' | 'cancelled' | 'postponed') =>
+    api.patch<Event>(`/admin/events/${id}/status`, { event_status }),
   getAll: (
     page = 1,
     limit = 10,

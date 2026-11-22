@@ -117,7 +117,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
-    navigate('/admin/login');
+    navigate('/login');
   };
 
   const handleCreateEvent = () => {
