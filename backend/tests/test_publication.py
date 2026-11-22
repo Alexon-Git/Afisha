@@ -30,11 +30,11 @@ def editorial(event_sessions, monkeypatch):
         first.organizer_id, first.event_url, first.source = 1, "https://example.org/event", "https://example.org/source"
         for identifier, publication, status in [(2, "published", "scheduled"), (3, "archived", "scheduled"),
                                                 (4, "published", "cancelled"), (5, "published", "postponed")]:
-            db.add(Event(id=identifier, title=f"Event {identifier}", datetime=datetime(2026, 11, 14 + identifier, 12),
+            db.add(Event(id=identifier, title=f"Event {identifier}", datetime=datetime(2026, 11, 14 + identifier, 12, tzinfo=timezone.utc),
                          location="NSK", category_id=1, organizer_id=1, event_url="https://example.org/event",
                          source="https://example.org/source", verified_at=NOW,
                          publication_status=publication, event_status=status))
-        db.add(Event(id=6, title=" ", datetime=datetime(2026, 11, 20), location=""))
+        db.add(Event(id=6, title=" ", datetime=datetime(2026, 11, 20, tzinfo=timezone.utc), location=""))
     previous = app.dependency_overrides.copy()
 
     def session():
@@ -125,7 +125,7 @@ ENDPOINTS = [("get", "/admin/events/", None), ("get", "/admin/events/1", None),
 
 
 @pytest.mark.parametrize("method,path,payload", ENDPOINTS + [
-    ("post", "/events/", {"title": "New", "datetime": "2026-11-15T12:00:00", "location": "NSK"}),
+    ("post", "/events/", {"title": "New", "datetime": "2026-11-15T12:00:00+07:00", "location": "NSK"}),
     ("put", "/events/1", {"description": "Not authorized"}), ("delete", "/events/1", None),
 ])
 @pytest.mark.parametrize("identity", ["anonymous", "garbage", "expired", "reader", "no-admin", "unknown"])
@@ -170,7 +170,7 @@ def test_verify_is_explicit_server_utc_and_repeatable_then_publish(editorial):
     assert client.get("/events/1").status_code == 404
 
 
-@pytest.mark.parametrize("field,value", [("title", ""), ("location", " "), ("datetime", "2026-12-01T12:00:00"),
+@pytest.mark.parametrize("field,value", [("title", ""), ("location", " "), ("datetime", "2026-12-01T12:00:00+07:00"),
                                        ("organizer_id", None), ("event_url", None), ("source", None)])
 def test_published_critical_updates_are_atomic_and_require_draft(editorial, field, value):
     client, headers, _ = editorial
@@ -221,7 +221,7 @@ def test_ordinary_write_cannot_bypass_workflow(editorial, field, value):
     client, headers, _ = editorial
     assert client.put("/events/1", headers=headers, json={field: value}).status_code == 422
     assert client.post("/events/", headers=headers,
-                       json={"title": "Draft", "datetime": "2026-11-15T12:00:00", "location": "NSK", field: value}).status_code == 422
+                       json={"title": "Draft", "datetime": "2026-11-15T12:00:00+07:00", "location": "NSK", field: value}).status_code == 422
 
 
 @pytest.mark.parametrize("method,path,payload", ENDPOINTS[1:])

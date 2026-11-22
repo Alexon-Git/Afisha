@@ -39,7 +39,7 @@
 ## Этап 2. Время и диапазоны дат — частично BLOCKED
 
 - [x] **PR-4. DONE** — PR #20 merged в `master`, merge `99d0800`. Диапазон календарных дней `[начало первого дня, начало дня после последнего)` в Asia/Novosibirsk, ошибка 400 на неверный ввод; полный backend pytest: 142 passed. Миграция старых naive datetime не входила в задачу.
-- [ ] **PR-8.** Миграция в `timestamptz`. **BLOCKED:** семантика существующих naive datetime неизвестна, локальных данных и PostgreSQL для проверки нет. Варианты: `TECHNICAL_PLAN.md` §2.
+- [ ] **PR-8. IMPLEMENTED, до review/merge** — `fix/event-timezone-contract`, база `332f4ea`; D-021: новая пустая PG17, старой БД для сохранения нет. 0004 empty-only, aware UTC API/ORM и календарные границы Новосибирска. Непустая events блокирует миграцию; UI остаётся PR-9. Проверки и статус публикации — в последних записях контекста.
 - [ ] **PR-9.** Админка: ввод и показ времени независимо от часового пояса браузера, тесты под несколькими `TZ`.
 
 **Критерий выхода:** округлённый «открыть и сохранить» не меняет момент события; тесты границ дат зелёные.
@@ -58,9 +58,7 @@
 - [ ] Админка: организаторы, статусы, явная отметка «проверено».
 - [x] **PR-5. DONE** — PR #21 merged, `d4c5b23`, CI merge-коммита success. C2–C5 и исправление нормализации URL изображений включены. Backend: 228 passed; React: 12 passed; production build успешен.
 - [ ] **PR-12. IN REVIEW** — `feature/unified-nginx-routing` от `7aa6211`: opt-in Nginx, CRA `/admin`, Next `/`, FastAPI `/api`, uploads read-only. Точный trusted IP только отдельным overlay, base сохраняет --no-proxy-headers. Локальные проверки/ограничения: `deploy/README.md` и последние записи контекста. Production BLOCKED: домен/HTTPS/допзащита админки требуют владельца. Merge/deploy не выполнялись.
-- [ ] **PR-13. IN REVIEW** — draft PR #27: общий CI FastAPI/CRA/Next.js/Nginx,
-  code head `8ff7a0e`, run 45018323444 success (все 4 jobs, полный gateway smoke).
-  Независимое review ещё требуется; merge/deploy не выполнялись.
+- [x] **PR-13. DONE** — PR #27 merged, master `332f4ea`; merge CI 45021827606 success на точном SHA, все 4 jobs. Общий CI FastAPI/CRA/Next.js/Nginx, pinned Actions SHA. Это не подтверждение готовности staging/deploy.
 
 **Критерий выхода:** редактор ведёт каталог без разработчика.
 
@@ -89,7 +87,7 @@
 
 ## Открытые решения владельца
 
-R6 статусы публикации и мероприятия · R7 формат цены · R8 аналитика · R9 сервер и домен · R10 данные для миграции времени · R11 `/events/{id}` или slug.
+R6 статусы публикации и мероприятия · R7 формат цены · R8 аналитика · R9 сервер и домен · R10 чистая БД подтверждена (D-021) · R11 `/events/{id}` или slug.
 
 ## Гейты качества
 

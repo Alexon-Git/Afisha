@@ -1,6 +1,6 @@
 """Image cleanup never touches real uploads and happens only after commit."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import threading
 
@@ -29,7 +29,7 @@ def attach(sessions, url=OLD, shared=False):
     with sessions.begin() as db:
         db.get(Event, 1).image_url = url
         if shared:
-            db.add(Event(id=2, title="Shared", datetime=datetime(2026, 11, 16),
+            db.add(Event(id=2, title="Shared", datetime=datetime(2026, 11, 16, tzinfo=timezone.utc),
                          location="Novosibirsk", image_url=url))
     return file
 
@@ -165,7 +165,7 @@ def test_failed_reference_lookup_defers_cleanup(event_api, event_sessions, monke
 def test_missing_owned_image_returns_422_without_changes(event_api, suffix):
     before = event_api.get("/admin/events/1").json()
     assert event_api.put("/events/1", json={"title": "Not saved", "image_url": OLD + suffix}).status_code == 422
-    assert event_api.post("/events/", json={"title": "New", "datetime": "2026-11-15T12:00:00",
+    assert event_api.post("/events/", json={"title": "New", "datetime": "2026-11-15T12:00:00+07:00",
                                           "location": "Novosibirsk", "image_url": OLD + suffix}).status_code == 422
     assert event_api.get("/admin/events/1").json() == before
 
@@ -183,7 +183,7 @@ def test_committing_reference_prevents_cleanup(event_api, event_sessions, suffix
                 with service._image_reference(OLD + suffix):
                     locked.set()
                     assert release.wait(5)
-                    db.add(Event(id=2, title="Concurrent", datetime=datetime(2026, 11, 16),
+                    db.add(Event(id=2, title="Concurrent", datetime=datetime(2026, 11, 16, tzinfo=timezone.utc),
                                  location="Novosibirsk", image_url=OLD + suffix))
                     db.commit()
         except Exception as exc:

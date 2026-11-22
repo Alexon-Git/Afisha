@@ -21,7 +21,7 @@ def test_edit_and_publication_serialize_and_refresh_stale_state(migration_databa
     with Session(engine) as db:
         db.add(Organizer(id=1, name="Club", public_contact="Designated public contact"))
         db.flush()
-        db.add(Event(id=1, title="Event", datetime=datetime(2026, 11, 15), location="Old place",
+        db.add(Event(id=1, title="Event", datetime=datetime(2026, 11, 15, tzinfo=timezone.utc), location="Old place",
                      organizer_id=1, event_url="https://example.org/event", source="https://example.org/source",
                      verified_at=datetime(2026, 11, 15, tzinfo=timezone.utc)))
         db.commit()

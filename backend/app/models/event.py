@@ -2,6 +2,7 @@ from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from ..utils.event_time import UTCDateTime
 from .event_status import EventStatus, PublicationStatus
 
 
@@ -11,7 +12,7 @@ class Event(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    datetime = Column(DateTime, nullable=False, index=True)
+    datetime = Column(UTCDateTime(), nullable=False, index=True)
     location = Column(String, nullable=False)
     image_url = Column(String, nullable=True)
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True)

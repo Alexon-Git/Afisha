@@ -171,3 +171,39 @@ and NEVER use the production database.
 - No schema modifications, test-event seeding or password printing on app import.
 - Do not downgrade production without explicit rollback and backup plan.
 - Never commit .env, database dumps, or admin credentials.
+
+
+## PR-8: абсолютное время, 0004_event_datetime_utc (2026-11-23)
+
+Владелец подтвердил запуск на новой пустой PostgreSQL 17 и отсутствие старой БД
+Afisha с мероприятиями для сохранения (D-021). Черновик перенесён в активную цепочку
+0001 → 0002 → 0003 → **0004_event_datetime_utc** совместно с aware API/ORM/фильтрами.
+
+На PostgreSQL миграция берёт ACCESS EXCLUSIVE lock с lock_timeout=5s, проверяет
+пустоту events и ожидаемый naive тип, затем меняет datetime на timestamptz через
+явный `AT TIME ZONE 'UTC'`. Это DDL для пустой таблицы, **не** интерпретация истории.
+При наличии любой строки upgrade отказывает; ревизия 0003, данные и тип сохраняются.
+Offline SQL запрещён: проверка пустоты должна быть реальной и под блокировкой.
+Другие таблицы/временные поля не меняются. SQLite берёт BEGIN IMMEDIATE и тоже
+отказывает при непустой events; физический SQLite DATETIME остаётся прежним,
+новый ORM хранит только UTC-компоненты и восстанавливает aware UTC.
+
+Не удалять старые строки/volumes и не stamp 0004 ради обхода отказа. Если вопреки
+ожидаемому обнаружены мероприятия — остановиться и отдельно согласовать их данные.
+Даже пустота проверенной preview-БД не разрешает менять её без отдельной задачи.
+
+API datetime: `2026-11-12T12:00:00+07:00` → `2026-11-12T05:00:00Z`.
+Naive/числовые timestamps → 422. Календарные date/date_from/date_to трактуются
+в Asia/Novosibirsk; date_to включителен посредством следующей местной полуночи.
+**Downgrade запрещён** до отдельного backup/export и плана временной семантики;
+автоматическое удаление зоны не реализовано.
+
+Тесты `tests/test_event_time_contract.py`: чистая 0001→0003→0004, повтор upgrade,
+сохранность users/categories/индекса/metadata, отказ populated upgrade без изменений,
+HTTP CRUD/verify/publication/status/фильтры/сортировка при четырёх process/session TZ.
+Для PostgreSQL используется только отдельный тестовый URL AFISHA_PR8_TEST_DATABASE_URL
+(host pr8db либо 127.0.0.1, database afisha_pr8, user pr8_test), новые случайные схемы.
+Тесты не удаляют БД/volumes. CI поднимает собственный PostgreSQL17 service и запускает
+PostgreSQL-половину матрицы; обычный SQLite suite её пропускает без opt-in URL.
+Ранее подготовленный focused checker сохранён в migration_drafts/check_empty_migration.py,
+теперь проверяет активную цепочку. Аудит и история: ../docs/audits/PR8_TIME_DATA_AUDIT.md.

@@ -63,3 +63,18 @@ pytest -q
 Public endpoints: `GET /health`, `GET /events/`, `GET /categories/`.
 Protected by admin JWT: create/update/delete events/categories,
 image uploads and `POST /auth/register`.
+
+### Event time contract (PR-8)
+
+Event datetime writes require ISO 8601 with an explicit UTC offset, for example
+`2026-11-12T12:00:00+07:00`; responses normalize to `2026-11-12T05:00:00Z`.
+Naive strings, date-only values and numeric epochs return 422. PostgreSQL uses
+`timestamptz`; SQLite encodes UTC and the ORM restores the offset. Calendar
+filters use Asia/Novosibirsk days, not the server/process timezone. A calendar
+range that cannot be represented in UTC returns 400 (including 0001-01-01).
+Unchanged instants expressed with different offsets compare equal.
+
+Upgrade 0004 requires an empty events table; it intentionally refuses all
+historical events. See MIGRATIONS.md. Admin form timezone behavior remains PR-9:
+creating/actually changing a date still follows the existing browser conversion.
+This PR does not claim that the form interprets all input as Novosibirsk time.

@@ -5,6 +5,67 @@
 **Default branch:** `master`  
 **Историческая база:** `main` (не удалять).
 
+## PR-8 — готово к независимому review, до merge (2026-11-23)
+
+- Владелец подтвердил новую пустую PostgreSQL17 и отсутствие старой БД Afisha
+  с мероприятиями для сохранения: D-021, R10 снят для чистой БД.
+- `fix/event-timezone-contract`, `.worktrees/afisha-pr8-current`, актуальная после
+  fetch база origin/master `332f4eaa8e4f4c1d8070da76ee9d41e34938651b` (PR #27 merged,
+  merge CI 45021827606 success). Старые worktrees/ветки и stash ff658e9 сохранены.
+- Черновик активирован как 0004_event_datetime_utc от 0003: PG ACCESS EXCLUSIVE
+  lock/5s timeout, отказ при любой строке, затем timestamptz. SQLite BEGIN IMMEDIATE,
+  тот же empty guard и UTC ORM-кодирование. Downgrade/offline upgrade запрещены.
+- API datetime только ISO с явным offset, нормализация UTC/Z; naive/date-only/
+  numeric epoch → 422. UTCDateTime не допускает naive ORM writes, восстанавливает
+  UTC из SQLite и нормализует PostgreSQL независимо от session TZ.
+- Фильтры date/today/tomorrow/weekend/date_from/date_to: местные дни Новосибирска,
+  UTC-полуоткрытые границы. Непредставимые UTC-границы → 400. Publication/visibility,
+  critical edits и verify остаются прежними; одинаковые моменты с разными offset равны.
+- Изолированная PostgreSQL17 + полный backend pytest в Linux image: **400 passed,
+  336 warnings**, включая 16 time-contract/migration случаев SQLite/PG × четыре TZ.
+  UTC, Asia/Novosibirsk, Europe/Moscow, America/Los_Angeles проверены для процесса,
+  PG-сессии, CRUD/публикации/статусов/фильтров/сортировки и guard непустой таблицы.
+  Первое локальное выполнение выявило старое сравнение строк вместо instant;
+  оно исправлено. Compileall/new-file whitespace/git diff --check успешны.
+- CI backend job дополнен отдельной PG17 service и PostgreSQL-матрицей на каждом PR.
+  Gateway smoke fixture теперь передаёт +07:00. UI/зависимости не менялись;
+  Next/CRA/gateway проверки выполняет unified CI на публикуемом head.
+- PR-9 остаётся отдельным: datetime-local формы ещё зависит от TZ браузера.
+  Это не исправляется неявным приписыванием зоны API. PR-14 не реализовывался.
+- Test PG остановлена, БД/схемы/container/network/volume сохранены. Preview
+  http://127.0.0.1:58080 не менялся. Production/сервер Харизмы не подключались,
+  merge/deploy не выполнялись. Текущий GitHub CI проверять на head PR, не на базе.
+
+## PR-8 — аудит данных, контракт ещё не внедрён (2026-11-22)
+
+- PR #27 merged: база `332f4eaa8e4f4c1d8070da76ee9d41e34938651b`,
+  [merge CI 45021827606](https://github.com/Alexon-Git/Afisha/actions/runs/45021827606)
+  success, все четыре jobs. Работа в `fix/event-timezone-contract`,
+  `.worktrees/afisha-pr8-current`; старый отсутствующий на диске worktree PR-8,
+  его metadata/ветка и stash ff658e9 не изменены.
+- Read-only аудит доступной локальной preview-БД: events=0,
+  datetime=`timestamp without time zone`, head=`0003_event_metadata`,
+  session TZ=Etc/UTC. Файловых БД/дампов в доступном дереве не найдено.
+  Production не проверялась. Это не подтверждение отсутствия иной старой БД.
+- **P0 / BLOCKED:** нужен ответ владельца: запуск только с пустой БД или
+  сохранение исторических данных вне preview? Для исторических строк нет
+  разрешённой копии и подтверждённой исходной зоны; автоматическая конвертация
+  не выполнялась. Не утверждается, что такие строки обнаружены.
+- Отдельный неактивный `backend/migration_drafts/0004_event_datetime_utc.py`
+  отказывает при непустой events; не входит в Alembic versions. Проверен на
+  изолированной PG17: 8 passed (empty/nonempty × UTC/Новосибирск/Москва/LA),
+  сохранение пользователей/категорий/индекса и aware-момента, отказ downgrade.
+- Полный backend pytest: 381 passed; 3 loopback-сценария получили sandbox
+  PermissionError. Только эти 3 повторены с разрешённым bind: 3 passed.
+  Это тесты существующего контракта, не нового API. Новые фильтры/aware API
+  ещё не реализованы; frontend/gateway повторно не собирались.
+- Compileall и git diff --check успешны. Подробности и план продолжения:
+  [PR8_TIME_DATA_AUDIT.md](audits/PR8_TIME_DATA_AUDIT.md).
+- Новая тестовая PG остановлена; БД/volume/container/network сохранены,
+  manifest `/private/tmp/afisha-pr8-audit-g16_gp96/resources.json`.
+  Прежний preview http://127.0.0.1:58080 сохранён. Модели, API, frontend,
+  активные миграции не менялись; commit/push/готовый PR/deploy не выполнялись.
+
 ## PR-13 — исправление независимого review (2026-11-22)
 
 - Все 8 вызовов GitHub Actions в `.github/workflows/backend-ci.yml` закреплены

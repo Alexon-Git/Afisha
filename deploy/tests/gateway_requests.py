@@ -73,7 +73,7 @@ with Image.open(io.BytesIO(loaded)) as decoded:
 status, _, _ = request('/api/events/upload-image', 'POST', b'x'*(6*1024*1024+1), {'Authorization':'Bearer '+token})
 assert status == 413
 status, event = api('/events/', 'POST', {
-    'title':'Gateway event', 'datetime':'2099-12-15T12:00:00', 'location':'Test location',
+    'title':'Gateway event', 'datetime':'2099-12-15T12:00:00+07:00', 'location':'Test location',
     'image_url':image_url,'category_id':category['id'],'organizer_id':1,
     'event_url':'https://example.invalid/register','source':'https://example.invalid/source'}, token)
 assert status == 200

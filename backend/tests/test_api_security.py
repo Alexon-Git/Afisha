@@ -20,7 +20,7 @@ def test_public_user_registration_requires_admin():
 
 def test_public_event_creation_requires_admin():
     response = client.post("/events/", json={
-        "title": "Do not create", "datetime": "2027-01-02T11:00:00",
+        "title": "Do not create", "datetime": "2027-01-02T11:00:00+07:00",
         "location": "Nowhere",
     })
     assert response.status_code in (401, 403)

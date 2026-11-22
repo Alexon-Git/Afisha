@@ -18,6 +18,18 @@ jobs:
   backend-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: afisha_pr8
+          POSTGRES_USER: pr8_test
+          POSTGRES_PASSWORD: ci-only-isolated-pr8-password
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pr8_test -d afisha_pr8"
+          --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -34,6 +46,11 @@ jobs:
       - name: Run tests
         working-directory: backend
         run: python -m pytest -q
+      - name: Check PostgreSQL 17 migration and time contract in four timezones
+        working-directory: backend
+        env:
+          AFISHA_PR8_TEST_DATABASE_URL: postgresql://pr8_test:ci-only-isolated-pr8-password@127.0.0.1:5432/afisha_pr8
+        run: python -m pytest -q tests/test_event_time_contract.py -k postgresql
 
   admin-tests:
     runs-on: ubuntu-24.04
