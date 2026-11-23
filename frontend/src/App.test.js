@@ -2,12 +2,13 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Simulate } from 'react-dom/test-utils';
 import App from './App';
-import { authApi, categoriesApi, eventsApi } from './services/api';
+import { authApi, categoriesApi, eventsApi, organizersApi } from './services/api';
 
 jest.mock('./services/api', () => ({
   authApi: { login: jest.fn(), me: jest.fn() },
   categoriesApi: { getAll: jest.fn() },
   eventsApi: { getAdminAll: jest.fn() },
+  organizersApi: { getAll: jest.fn() },
 }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { error: jest.fn(), success: jest.fn() }, Toaster: () => null }));
 let root, container;
@@ -20,6 +21,7 @@ beforeEach(() => {
   root = createRoot(container);
   authApi.me.mockResolvedValue({ data: { username: 'editor', is_admin: true } });
   authApi.login.mockResolvedValue({ data: { access_token: 'test-token' } });
+  organizersApi.getAll.mockResolvedValue({ data: [] });
   categoriesApi.getAll.mockResolvedValue({ data: [] });
   eventsApi.getAdminAll.mockResolvedValue({ data: { items: [], total_items: 0, total_pages: 0 } });
 });

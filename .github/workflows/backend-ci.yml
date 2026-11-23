@@ -69,7 +69,11 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - run: npm test -- --watchAll=false --runInBand
+      - name: Test admin in four browser timezones
+        run: |
+          for zone in UTC Asia/Novosibirsk Europe/Moscow America/Los_Angeles; do
+            TZ="$zone" npm test -- --watchAll=false --runInBand
+          done
       - run: npm run build
 
   public-tests:

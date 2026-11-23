@@ -125,6 +125,7 @@ ENDPOINTS = [("get", "/admin/events/", None), ("get", "/admin/events/1", None),
 
 
 @pytest.mark.parametrize("method,path,payload", ENDPOINTS + [
+    ("get", "/admin/organizers/", None),
     ("post", "/events/", {"title": "New", "datetime": "2026-11-15T12:00:00+07:00", "location": "NSK"}),
     ("put", "/events/1", {"description": "Not authorized"}), ("delete", "/events/1", None),
 ])
@@ -255,3 +256,19 @@ def test_editorial_payload_is_strict(editorial, path, payload):
     before = admin_get(editorial)
     assert client.patch(f"/admin/events/1/{path}", headers=headers, json=payload).status_code == 422
     assert admin_get(editorial) == before
+
+
+def test_admin_organizer_picker_is_minimal_ordered_and_read_only(editorial, event_sessions):
+    client, headers, _ = editorial
+    with event_sessions.begin() as db:
+        db.add(Organizer(id=2, name="Another", description="Private editorial notes",
+                         public_contact="contact-not-for-the-picker", website_url="https://example.org/"))
+    response = client.get("/admin/organizers/", headers=headers)
+    assert response.status_code == 200
+    assert response.json() == [{"id": 2, "name": "Another"}, {"id": 1, "name": "Club"}]
+    assert client.post("/admin/organizers/", headers=headers, json={"name": "New"}).status_code == 405
+
+
+def test_admin_organizer_picker_empty(event_api):
+    response = event_api.get("/admin/organizers/")
+    assert response.status_code == 200 and response.json() == []
