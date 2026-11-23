@@ -9,6 +9,41 @@
 > и контекст предыдущих решений. Не подменяй им повторное чтение
 > затрагиваемых файлов и текущего GitHub Actions.
 
+## PR-9 — админка: время и редакционный workflow (2026-11-23, до review/merge)
+
+- База: актуальный origin/master `eba175325defe1e4a97466637c318664fb098180`;
+  PR #28 merged, merge CI 45113752739 — success, все четыре jobs проверены.
+  Отдельная ветка `fix/admin-event-timezone`, worktree `.worktrees/afisha-pr9`;
+  прочие worktrees, локальные изменения и stash ff658e9 сохранены.
+- `eventTime.ts` с date-fns-tz 3.2.0: datetime-local трактуется только в
+  Asia/Novosibirsk. Пример 2026-11-23 18:00 → 11:00Z во всех TZ. Обратное
+  отображение, исторический offset, границы UTC 1900–2100, неверные даты и
+  неоднозначные/несуществующие местные часы покрыты тестами.
+- Снимок формы и частичный PUT сохранены: без правок PUT нет; description-only
+  не отправляет datetime; возвращённая к исходной дата не отправляется.
+  Native input показывает до миллисекунд; неизменённые микросекунды API не
+  переписываются, остаток сохраняется при смене даты без смены миллисекунд.
+- В текущую форму добавлены organizer_id/event_url/source, статусы и явный verify;
+  publication/status вызываются отдельно. Клиент не задаёт verified_at/статусы
+  в обычном POST/PUT и не обходит 422 published edits. Несохранённые правки
+  блокируют editorial actions; ошибки backend остаются видимыми в форме.
+- Выявлен конкретный пробел: backend не имел списка организаторов. Добавлен
+  только GET /admin/organizers/, реальный DB-admin, поля id/name без контактов;
+  справочник доступен для выбора, управление/создание организаторов не добавлено.
+  Публикация по-прежнему требует существующего организатора с публичным контактом.
+- Полный frontend Jest: **75 passed в каждом из четырёх TZ** (UTC, Новосибирск,
+  Москва, Лос-Анджелес), без моков преобразования времени. Production CRA build
+  с PUBLIC_URL=/admin успешен. CI admin job теперь повторяет suite в четырёх TZ.
+- Backend targeted publication/metadata: **160 passed**; полный pytest:
+  **404 passed, 12 PG opt-in skipped, 344 warnings**. PG17-матрицу и gateway smoke
+  проверяет unified CI нового PR; локальная PG/preview не запускались и не менялись.
+  Compileall и diff --check успешны. Warnings — прежние deprecations зависимостей;
+  frontend также предупреждает об устаревших Browserslist данных/React Router v7.
+- Миграция 0004, публичный Next.js, production/VPS и Docker-ресурсы не менялись.
+  Browser QA не выполнялась; Jest проверяет реальный datetime-local DOM, включая
+  миллисекундное ограничение. Следующий шаг: independent review опубликованного
+  PR и CI на точном head; merge/deploy автоматически не выполнять.
+
 ## PR-8 — исправление P2 диапазона datetime (2026-11-23)
 
 - Причина: psycopg2 декодирует timestamptz в TZ сессии до UTCDateTime result hook;

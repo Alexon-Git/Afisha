@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { eventsApi, authApi } from './api';
+import { eventsApi, authApi, organizersApi } from './api';
 
 jest.mock('axios', () => {
   const client = { get: jest.fn(), post: jest.fn(), patch: jest.fn(), interceptors: { request: { use: jest.fn() }, response: { use: jest.fn() } } };
@@ -29,4 +29,9 @@ test('editor reads use protected endpoints and public reads stay public', () => 
   expect(client.get).toHaveBeenLastCalledWith('/admin/events/17');
   eventsApi.getAll(1, 10);
   expect(client.get).toHaveBeenLastCalledWith('/events/', { params: { page: 1, limit: 10 } });
+});
+
+test('organizer picker uses the protected endpoint', () => {
+  organizersApi.getAll();
+  expect(axios.create().get).toHaveBeenLastCalledWith('/admin/organizers/');
 });

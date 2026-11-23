@@ -56,6 +56,10 @@ export const normalizeCategoryList = (data: unknown): Category[] => {
   return [];
 };
 
+export type PublicationStatus = 'draft' | 'published' | 'archived';
+export type EventStatus = 'scheduled' | 'cancelled' | 'postponed';
+export interface Organizer { id: number; name: string; }
+
 export interface Event {
   organizer?: { name: string } | null;
   id: number;
@@ -63,14 +67,20 @@ export interface Event {
   description?: string;
   datetime: string;
   location: string;
-  image_url?: string;
+  image_url?: string | null;
   category_id?: number | null;
   category?: Category | null;
   creator_id?: number;
+  verified_at?: string | null;
+  publication_status: PublicationStatus;
+  event_status: EventStatus;
   price?: number | null;
   rating?: number | null;
   discount?: number | null;
   payment_url?: string | null;
+  organizer_id?: number | null;
+  event_url?: string | null;
+  source?: string | null;
 }
 
 export interface PaginatedEventsResponse {
@@ -100,6 +110,9 @@ export interface EventCreate {
   rating?: number | null;
   discount?: number | null;
   payment_url?: string | null;
+  organizer_id?: number | null;
+  event_url?: string | null;
+  source?: string | null;
 }
 
 export interface EventUpdate {
@@ -113,6 +126,9 @@ export interface EventUpdate {
   rating?: number | null;
   discount?: number | null;
   payment_url?: string | null;
+  organizer_id?: number | null;
+  event_url?: string | null;
+  source?: string | null;
 }
 
 export interface User {
@@ -164,6 +180,10 @@ export const eventsApi = {
       },
     });
   },
+};
+
+export const organizersApi = {
+  getAll: () => api.get<Organizer[]>('/admin/organizers/'),
 };
 
 export interface CategoryCreatePayload {

@@ -9,6 +9,10 @@ import {
   EventCreate,
   EventUpdate,
   eventsApi,
+  organizersApi,
+  Organizer,
+  PublicationStatus,
+  EventStatus,
 } from '../services/api';
 import {
   Plus,
@@ -21,10 +25,16 @@ import {
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { instantToEventInput, eventInputToInstant } from '../utils/eventTime';
 
 const AdminDashboard: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [organizers, setOrganizers] = useState<Organizer[]>([]);
+  const [organizersError, setOrganizersError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editorialBusy, setEditorialBusy] = useState(false);
+  const [editorialError, setEditorialError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -47,6 +57,9 @@ const AdminDashboard: React.FC = () => {
     rating: null,
     discount: null,
     payment_url: null,
+    organizer_id: null,
+    event_url: null,
+    source: null,
   });
   const [formData, setFormData] = useState<EventCreate>(createEmptyEventForm());
   const [originalFormData, setOriginalFormData] = useState<EventCreate | null>(null);
@@ -115,12 +128,21 @@ const AdminDashboard: React.FC = () => {
     return () => { active = false; };
   }, [page, eventsVersion]);
 
+  useEffect(() => {
+    let active = true;
+    organizersApi.getAll().then(({ data }) => {
+      if (active) setOrganizers(data);
+    }).catch(() => { if (active) setOrganizersError(true); });
+    return () => { active = false; };
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     navigate('/login');
   };
 
   const handleCreateEvent = () => {
+    setEditorialError(null);
     setEditingEvent(null);
     setOriginalFormData(null);
     setFormData(createEmptyEventForm());
@@ -128,18 +150,22 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleEditEvent = (event: Event) => {
+    setEditorialError(null);
     setEditingEvent(event);
     const initialForm: EventCreate = {
       title: event.title,
       description: event.description || '',
-      datetime: new Date(event.datetime).toISOString().slice(0, 16),
+      datetime: instantToEventInput(event.datetime),
       location: event.location,
       image_url: event.image_url || '',
-      category_id: event.category?.id ?? null,
+      category_id: event.category_id ?? event.category?.id ?? null,
       price: event.price ?? null,
       rating: event.rating ?? null,
       discount: event.discount ?? null,
       payment_url: event.payment_url ?? null,
+      organizer_id: event.organizer_id ?? null,
+      event_url: event.event_url ?? null,
+      source: event.source ?? null,
     };
     setFormData(initialForm);
     setOriginalFormData(initialForm);
@@ -171,8 +197,39 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const apiError = (error: unknown): string => {
+    const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+    if (detail && typeof detail === 'object' && 'fields' in detail) {
+      const fields = (detail as { fields: Record<string, string> }).fields;
+      return Object.entries(fields).map(([field, reason]) => `${field}: ${reason}`).join('; ');
+    }
+    return typeof detail === 'string' ? detail : error instanceof Error ? error.message : 'Ошибка сохранения';
+  };
+
+  const hasUnsavedChanges = originalFormData !== null && JSON.stringify(formData) !== JSON.stringify(originalFormData);
+
+  // Editorial actions never submit unsaved form values or combine verification/publication.
+  const handleEditorial = async (action: () => Promise<{ data: Event }>) => {
+    if (!editingEvent || editorialBusy || saving || hasUnsavedChanges) return;
+    setEditorialBusy(true);
+    setEditorialError(null);
+    try {
+      const { data } = await action();
+      setEditingEvent(data);
+      fetchEvents();
+      toast.success('Редакционное действие выполнено');
+    } catch (error) {
+      setEditorialError(apiError(error));
+    } finally {
+      setEditorialBusy(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving || editorialBusy) return;
+    setSaving(true);
+    setEditorialError(null);
     try {
       const normalizeNumber = (value: number | null | undefined) =>
         value !== null && value !== undefined && !Number.isNaN(value) ? value : null;
@@ -198,6 +255,9 @@ const AdminDashboard: React.FC = () => {
               ? Math.round(Math.min(100, Math.max(0, normalizedDiscount)))
               : null,
           payment_url: data.payment_url ? data.payment_url.trim() || null : null,
+          organizer_id: data.organizer_id ?? null,
+          event_url: data.event_url?.trim() || null,
+          source: data.source?.trim() || null,
         };
       };
 
@@ -208,10 +268,13 @@ const AdminDashboard: React.FC = () => {
           Object.entries(fields).filter(([key, value]) =>
             value !== original[key as keyof typeof original])
         );
-        // Compare form values before any timezone conversion. An untouched date
-        // must never become an aware critical-field update of a naive DB value.
+        // Compare the Novosibirsk form snapshot first: untouched/reverted dates
+        // never enter PUT, preserving server-side publication checks and precision.
         if (formData.datetime !== originalFormData.datetime) {
-          payload.datetime = new Date(formData.datetime).toISOString();
+          const instant = eventInputToInstant(formData.datetime, editingEvent.datetime);
+          if (instantToEventInput(instant) !== instantToEventInput(editingEvent.datetime)) {
+            payload.datetime = instant;
+          }
         }
         if (Object.keys(payload).length === 0) {
           setShowModal(false);
@@ -222,7 +285,7 @@ const AdminDashboard: React.FC = () => {
       } else {
         const payload: EventCreate = {
           ...fields,
-          datetime: new Date(formData.datetime).toISOString(),
+          datetime: eventInputToInstant(formData.datetime),
         };
         await eventsApi.create(payload);
         toast.success('Мероприятие создано');
@@ -234,7 +297,9 @@ const AdminDashboard: React.FC = () => {
         fetchEvents();
       }
     } catch (error) {
-      toast.error('Ошибка при сохранении мероприятия');
+      setEditorialError(apiError(error));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -510,6 +575,12 @@ const AdminDashboard: React.FC = () => {
                             <div>
                               <div className="text-sm font-medium text-gray-900">
                                 {event.title}
+                                <div className="text-xs text-gray-500">
+                                  {instantToEventInput(event.datetime).replace('T', ' ')} · Asia/Novosibirsk
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {event.publication_status} · {event.event_status}
+                                </div>
                               </div>
                               {event.description && (
                                 <div className="text-sm text-gray-500 truncate max-w-xs">
@@ -584,6 +655,8 @@ const AdminDashboard: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                {editorialError && <p role="alert" className="text-red-600">{editorialError}</p>}
+                <fieldset disabled={saving || editorialBusy} className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Название *
@@ -614,10 +687,12 @@ const AdminDashboard: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Дата и время *
+                      Дата и время (Asia/Novosibirsk) *
                     </label>
                     <input
                       type="datetime-local"
+                      aria-label="Дата и время Новосибирска"
+                      step="any"
                       required
                       value={formData.datetime}
                       onChange={(e) => setFormData(prev => ({ ...prev, datetime: e.target.value }))}
@@ -669,6 +744,30 @@ const AdminDashboard: React.FC = () => {
                       Активных категорий пока нет. Добавьте их в разделе «Категории» ниже.
                     </p>
                   )}
+                </div>
+
+                <div>
+                  <label htmlFor="event-organizer" className="block text-sm font-medium text-gray-700 mb-2">Организатор</label>
+                  <select id="event-organizer" className="input-field" value={formData.organizer_id ?? ''}
+                    disabled={organizersError}
+                    onChange={e => setFormData(prev => ({ ...prev, organizer_id: e.target.value ? Number(e.target.value) : null }))}>
+                    <option value="">Не указано</option>
+                    {formData.organizer_id && !organizers.some(item => item.id === formData.organizer_id) &&
+                      <option value={formData.organizer_id}>{editingEvent?.organizer?.name || `#${formData.organizer_id}`}</option>}
+                    {organizers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  </select>
+                  {organizersError && <p role="alert">Не удалось загрузить организаторов. Текущее значение сохранено.</p>}
+                  {!organizersError && organizers.length === 0 && <p>Организаторы пока не заведены. Управление справочником отдельно.</p>}
+                </div>
+                <div>
+                  <label htmlFor="event-url" className="block text-sm font-medium text-gray-700 mb-2">Событие / регистрация</label>
+                  <input id="event-url" type="url" className="input-field" value={formData.event_url ?? ''}
+                    onChange={e => setFormData(prev => ({ ...prev, event_url: e.target.value || null }))} />
+                </div>
+                <div>
+                  <label htmlFor="event-source" className="block text-sm font-medium text-gray-700 mb-2">Первоисточник</label>
+                  <input id="event-source" type="url" className="input-field" value={formData.source ?? ''}
+                    onChange={e => setFormData(prev => ({ ...prev, source: e.target.value || null }))} />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -741,6 +840,7 @@ const AdminDashboard: React.FC = () => {
                   </label>
                   <input
                     type="url"
+                    aria-label="Ссылка на оплату"
                     value={formData.payment_url ?? ''}
                     onChange={(e) =>
                       setFormData(prev => ({
@@ -811,7 +911,34 @@ const AdminDashboard: React.FC = () => {
                     {editingEvent ? 'Обновить' : 'Создать'}
                   </button>
                 </div>
+                </fieldset>
               </form>
+              {editingEvent && (
+                <fieldset disabled={saving || editorialBusy || hasUnsavedChanges} className="mt-6 space-y-3">
+                  <p>Публикация: {editingEvent.publication_status} · Событие: {editingEvent.event_status}</p>
+                  <p>Проверено: {editingEvent.verified_at || 'Нет'}</p>
+                  <p className="text-sm text-gray-600">Сначала сохраните и заново откройте форму. Для критичных правок опубликованного события: в черновик → правки → проверка → публикация.</p>
+                  <button type="button" className="btn-secondary" onClick={() => handleEditorial(() => eventsApi.verify(editingEvent.id))}>Подтвердить проверку</button>
+                  <label className="block">Статус публикации
+                    <select aria-label="Статус публикации" value={editingEvent.publication_status}
+                      onChange={e => {
+                        const status = e.target.value as PublicationStatus;
+                        handleEditorial(() => eventsApi.changePublication(editingEvent.id, status));
+                      }}>
+                      <option value="draft">Черновик</option><option value="published">Опубликовано</option><option value="archived">Архив</option>
+                    </select>
+                  </label>
+                  <label className="block">Статус мероприятия
+                    <select aria-label="Статус мероприятия" value={editingEvent.event_status}
+                      onChange={e => {
+                        const status = e.target.value as EventStatus;
+                        handleEditorial(() => eventsApi.changeStatus(editingEvent.id, status));
+                      }}>
+                      <option value="scheduled">Запланировано</option><option value="cancelled">Отменено</option><option value="postponed">Перенесено</option>
+                    </select>
+                  </label>
+                </fieldset>
+              )}
             </div>
           </div>
         </div>
