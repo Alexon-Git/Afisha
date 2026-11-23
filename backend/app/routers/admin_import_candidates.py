@@ -1,4 +1,4 @@
-"""Read and review import candidates. No fetch, link, promote, or publication."""
+"""Authenticated review, draft conversion and explicit linking; never publish."""
 from typing import Annotated
 from uuid import UUID
 
@@ -13,6 +13,12 @@ from ..models.imports import EventCandidate
 from ..models.user import User
 from ..schemas.import_review import ApproveCandidate, CandidateDetail, CandidatePage, RejectCandidate, ReviewStatus
 from ..services.import_review_service import candidate_detail, moderate_candidate
+
+
+from ..schemas.import_actions import CandidateEdit, LinkInput
+from ..schemas.import_review import ReviewInput
+from ..imports.actions import edit_candidate, transfer
+
 
 router = APIRouter(prefix='/admin/import/candidates', tags=['admin-import-candidates'],
                    dependencies=[Depends(get_current_admin_user)])
@@ -67,3 +73,21 @@ def approve(candidate_id: int, change: ApproveCandidate, db: Session = Depends(g
 def reject(candidate_id: int, change: RejectCandidate, db: Session = Depends(get_db),
            actor: User = Depends(get_current_admin_user)):
     return moderate_candidate(db, candidate_id, change, actor.id, 'rejected')
+
+
+@router.post('/{candidate_id}/promote', response_model=CandidateDetail)
+def promote(candidate_id: int, change: ReviewInput, db: Session = Depends(get_db),
+            actor: User = Depends(get_current_admin_user)):
+    return transfer(db,candidate_id,change,actor.id,'created')
+
+
+@router.post('/{candidate_id}/link', response_model=CandidateDetail)
+def link(candidate_id: int, change: LinkInput, db: Session = Depends(get_db),
+         actor: User = Depends(get_current_admin_user)):
+    return transfer(db,candidate_id,change,actor.id,'existing')
+
+
+@router.patch('/{candidate_id}', response_model=CandidateDetail)
+def edit(candidate_id: int, change: CandidateEdit, db: Session = Depends(get_db),
+         actor: User = Depends(get_current_admin_user)):
+    return edit_candidate(db,candidate_id,change,actor.id)

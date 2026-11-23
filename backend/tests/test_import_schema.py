@@ -62,7 +62,7 @@ def import_database(request, tmp_path_factory):
         upgrade(url, 'head')
         with engine.connect() as c:
             assert set(inspect(c).get_table_names()) == tables | NEW | {'alembic_version'}
-            assert c.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0005_import_schema'
+            assert c.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0006_import_worker_integrity'
             for t in tables:
                 assert c.execute(text(f'SELECT * FROM {t}')).mappings().all() == before[t]
                 assert repr((inspect(c).get_columns(t), inspect(c).get_indexes(t), inspect(c).get_foreign_keys(t))) == structure[t]

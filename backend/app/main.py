@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from .models import category as _category_model  # noqa: F401
 from .models import event as _event_model  # noqa: F401
 from .models import user as _user_model  # noqa: F401
-from .routers import admin_import_candidates, admin_events, admin_organizers, auth, categories, events
+from .routers import admin_import_runs, admin_import_candidates, admin_events, admin_organizers, auth, categories, events
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,7 @@ app.include_router(categories.router)
 app.include_router(events.router)
 app.include_router(admin_events.router)
 app.include_router(admin_import_candidates.router)
+app.include_router(admin_import_runs.router)
 app.include_router(admin_organizers.router)
 
 

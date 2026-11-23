@@ -224,3 +224,42 @@ export const authApi = {
 };
 
 export default api;
+
+export interface ImportSource {
+  id: number; name: string; base_url: string; state: string; access_method: string;
+  permission_basis: string | null; permission_reference: string | null;
+  terms_url: string | null; terms_checked_at: string | null; review_due_at: string | null;
+  robots_state: string; policy_version: number;
+}
+export interface ImportRun {
+  id: string; source_id: number; status: string; requested_url: string;
+  error_code: string | null; record_errors: {code: string; attempt: number}[];
+  records_seen: number; candidates_created: number; candidates_unchanged: number;
+}
+export interface ImportCandidate {
+  id: number; source_id: number; revision: number; title: string | null;
+  review_status: string; start_at: string | null; reviewed_revision: number | null;
+  source_url: string; original_start: string | null; time_resolution: string;
+  city: string | null; venue_name: string | null; address: string | null;
+  warnings: string[]; field_provenance: Record<string, unknown>;
+  proposed_organizer_id: number | null; linked_event_id: number | null;
+  organizer_name: string | null; organizer_url: string | null; official_event_url: string | null;
+  price_kind: string; price_amount: string | null; currency: string | null; proposed_event_status: string | null;
+  matches: {id: number; event_id: number | null; reason_codes: string[]; score: string}[];
+}
+export const importApi = {
+  sources: () => api.get<ImportSource[]>('/admin/import/sources'),
+  runs: () => api.get<ImportRun[]>('/admin/import/runs'),
+  start: (source_id: number, url: string, key: string) => api.post<ImportRun>('/admin/import/runs', {source_id,url}, {headers:{'Idempotency-Key':key}}),
+  candidates: (page = 1) => api.get<{items: ImportCandidate[]; total_pages: number}>('/admin/import/candidates', {params:{page,limit:20}}),
+  candidate: (id: number) => api.get<ImportCandidate>(`/admin/import/candidates/${id}`),
+  approve: (c: ImportCandidate, dismissed: boolean) => api.post<ImportCandidate>(`/admin/import/candidates/${c.id}/approve`, {
+    expected_revision:c.revision, time_decision:'accept', organizer_decision:'unresolved',
+    match_decisions:c.matches.map(m => ({match_id:m.id,decision:dismissed ? 'not_a_duplicate' : 'defer'})),
+  }),
+  reject: (c: ImportCandidate, review_note: string) => api.post<ImportCandidate>(`/admin/import/candidates/${c.id}/reject`, {expected_revision:c.revision,review_note}),
+  promote: (c: ImportCandidate) => api.post<ImportCandidate>(`/admin/import/candidates/${c.id}/promote`, {expected_revision:c.revision}),
+  link: (c: ImportCandidate, event_id: number) => api.post<ImportCandidate>(`/admin/import/candidates/${c.id}/link`, {expected_revision:c.revision,event_id}),
+  edit: (c: ImportCandidate, data: {start_at: string; city: string; venue_name: string; review_note: string}) => api.patch<ImportCandidate>(`/admin/import/candidates/${c.id}`, {expected_revision:c.revision,...data}),
+  recheck: (c: ImportCandidate, key: string) => api.post<ImportRun>(`/admin/import/candidates/${c.id}/recheck`, {}, {headers:{'Idempotency-Key':key}}),
+};

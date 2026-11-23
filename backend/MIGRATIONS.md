@@ -239,3 +239,16 @@ Downgrade удаляет все четыре таблицы и импортну�
 удалении Event. PostgreSQL и DDL 0005 не меняются. Регрессионный тест использует
 обычные engine/SessionLocal в отдельном процессе с DATABASE_URL временной БД,
 без test-only FK listener; проверяет ORM/SQL DELETE и новые подключения пула.
+
+
+## 0006_import_worker_integrity
+
+Нужна для устойчивого worker и достоверного происхождения: attempt_count с default 0,
+триггеры проверяют source_id обоих runs кандидата и запрещают изменение source_id
+у уже созданного ImportRun. FK 0005 сохраняются; Event/старые даты не меняются.
+До DDL проверяются существующие несоответствия: при обнаружении upgrade прерывается,
+требуется ручная сверка, автоматического исправления provenance нет.
+Проверяется upgrade 0005 -> 0006 и metadata на отдельной SQLite/PostgreSQL17.
+Downgrade снимает защиту и удаляет историю attempt_count; не применять к рабочим
+данным без отдельного плана/backup. Production-миграции в этой задаче не выполняются.
+Запуск worker и политика источника: [IMPORT_WORKER.md](../docs/IMPORT_WORKER.md).

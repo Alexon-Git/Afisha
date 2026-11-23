@@ -1,8 +1,4 @@
-"""Import storage only: candidates never create or publish Event rows.
-
-URL normalization, policy decisions and state transitions belong to later PRs.
-JSON columns contain bounded normalized facts, never source HTML or credentials.
-"""
+"""Bounded import facts and audit history; imports never publish Events."""
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -94,6 +90,7 @@ class ImportRun(Base):
     heartbeat_at = stamp()
     policy_version = Column(Integer, nullable=False)
     adapter_version = Column(String(64), nullable=False)
+    attempt_count = Column(Integer, nullable=False, server_default='0')
     request_count = Column(Integer, nullable=False, server_default='0')
     bytes_received = Column(Integer, nullable=False, server_default='0')
     records_seen = Column(Integer, nullable=False, server_default='0')
