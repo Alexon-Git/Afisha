@@ -1,6 +1,6 @@
 """Disposable event-editing storage; all files and data stay in pytest tmp_path."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 import socket
 import threading
 import time
@@ -36,7 +36,7 @@ def event_sessions(tmp_path, monkeypatch):
         db.add(User(id=1, username="test-admin", password_hash="test-only", is_admin=True))
         db.add(Category(id=1, name="Business", slug="business"))
         db.flush()
-        db.add(Event(id=1, title="Original", datetime=datetime(2026, 11, 15, 12),
+        db.add(Event(id=1, title="Original", datetime=datetime(2026, 11, 15, 12, tzinfo=timezone.utc),
                      location="Novosibirsk", category_id=1, creator_id=1))
     try:
         yield sessions

@@ -71,7 +71,7 @@ def assert_schema_matches(engine):
         columns = {item["name"]: item for item in inspector.get_columns("events")}
         for column in ("organizer_id", "event_url", "source", "verified_at"):
             assert columns[column]["nullable"]
-        assert not columns["datetime"]["type"].timezone
+        assert columns["datetime"]["type"].timezone == (engine.dialect.name == "postgresql")
 
 
 def test_fresh_0001_0002_0003_matches_models(migration_database, monkeypatch, tmp_path):
@@ -86,7 +86,7 @@ def test_fresh_0001_0002_0003_matches_models(migration_database, monkeypatch, tm
         db.commit()
         assert organizer.created_at is not None and organizer.updated_at is not None
         service = EventService(db)
-        item = service.create_event(EventCreate(title="ORM event", datetime="2026-11-15T12:00:00",
+        item = service.create_event(EventCreate(title="ORM event", datetime="2026-11-15T12:00:00+07:00",
                                                location="NSK", organizer_id=organizer.id,
                                                event_url="https://example.org/event"), creator_id=None)
         assert item.publication_status == "draft" and item.event_status == "scheduled"
@@ -109,7 +109,7 @@ def test_0002_upgrade_preserves_all_legacy_data(migration_database):
         connection.execute(text("INSERT INTO login_attempts VALUES ('account:test-only', 2, 1800000000)"))
         before = {table: connection.execute(text(f"SELECT * FROM {table}")).mappings().all()
                   for table in ("users", "categories", "events", "login_attempts")}
-    upgrade(url, "head")
+    upgrade(url, "0003_event_metadata")
     with engine.begin() as connection:
         for table, original in before.items():
             actual = connection.execute(text(f"SELECT * FROM {table}")).mappings().all()
@@ -122,7 +122,7 @@ def test_0002_upgrade_preserves_all_legacy_data(migration_database):
         connection.execute(text("INSERT INTO events (id, title, datetime, location) VALUES (2, 'New SQL', '2026-12-01 12:00:00', 'NSK')"))
         defaults = connection.execute(text("SELECT publication_status, event_status, verified_at FROM events WHERE id=2")).one()
         assert tuple(defaults) == ("draft", "scheduled", None)
-    assert_schema_matches(engine)
+    # The historical event is preserved by 0003; 0004 must refuse it separately.
 
 
 def test_db_constraints_and_organizer_deletion(migration_database):

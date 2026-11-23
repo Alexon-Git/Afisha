@@ -11,7 +11,7 @@ from app.models.event_status import EventStatus, PublicationStatus
 from app.models.organizer import Organizer
 
 
-OLD_REQUEST = {"title": "New event", "datetime": "2026-11-15T12:30:00", "location": "Novosibirsk"}
+OLD_REQUEST = {"title": "New event", "datetime": "2026-11-15T12:30:00+07:00", "location": "Novosibirsk"}
 
 
 def test_organizer_fields_relationship_and_safe_deletion(event_sessions):
@@ -23,7 +23,7 @@ def test_organizer_fields_relationship_and_safe_deletion(event_sessions):
         identifier = organizer.id
         assert organizer.created_at is not None and organizer.updated_at is not None
         db.get(Event, 1).organizer = organizer
-        db.add(Event(title="Second", datetime=datetime(2026, 11, 16), location="NSK", organizer=organizer))
+        db.add(Event(title="Second", datetime=datetime(2026, 11, 16, tzinfo=timezone.utc), location="NSK", organizer=organizer))
     with event_sessions.begin() as db:
         organizer = db.get(Organizer, identifier)
         assert len(organizer.events) == 2
@@ -55,7 +55,8 @@ def test_legacy_http_contract_and_new_defaults(event_api):
     created = event_api.post("/events/", json={**OLD_REQUEST, "payment_url": "https://payments.example.org/legacy"})
     assert created.status_code == 200
     body = created.json()
-    assert all(body[key] == value for key, value in OLD_REQUEST.items())
+    assert all(body[key] == value for key, value in OLD_REQUEST.items() if key != "datetime")
+    assert datetime.fromisoformat(body["datetime"]) == datetime.fromisoformat(OLD_REQUEST["datetime"])
     assert body["payment_url"] == "https://payments.example.org/legacy"
     assert body["organizer_id"] is body["event_url"] is body["source"] is body["verified_at"] is None
     assert body["publication_status"] == "draft" and body["event_status"] == "scheduled"

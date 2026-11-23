@@ -9,7 +9,7 @@ from app.services.event_service import EventService
 from app.services.exceptions import CategoryNotFoundError
 
 
-CREATE = {"title": "New", "datetime": "2026-11-15T12:00:00", "location": "Novosibirsk"}
+CREATE = {"title": "New", "datetime": "2026-11-15T12:00:00+07:00", "location": "Novosibirsk"}
 
 
 @pytest.mark.parametrize("field", ["title", "datetime", "location"])

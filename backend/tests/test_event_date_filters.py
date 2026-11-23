@@ -1,6 +1,7 @@
 """Calendar filters on disposable SQLite data; no production database access."""
 
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import os
 import socket
 import threading
@@ -49,7 +50,7 @@ def catalog(tmp_path, monkeypatch):
             ("new-year", "2027-01-01T00:00:00", category),
             ("year-after", "2027-01-02T00:00:00", category),
         ]:
-            db.add(Event(title=title, datetime=datetime.fromisoformat(moment),
+            db.add(Event(title=title, datetime=datetime.fromisoformat(moment).replace(tzinfo=ZoneInfo("Asia/Novosibirsk")),
                          location="Novosibirsk", category_id=group.id, publication_status="published"))
     try:
         yield sessions
@@ -87,8 +88,8 @@ def test_single_day_boundaries(api, params):
     body = response.json()
     assert [item["title"] for item in body["items"]] == ["start", "other", "late", "micro"]
     assert body["total_items"] == 4
-    assert body["items"][0]["datetime"] == "2026-11-12T00:00:00"
-    assert body["items"][-1]["datetime"] == "2026-11-12T23:59:59.999999"
+    assert body["items"][0]["datetime"] == "2026-11-11T17:00:00Z"
+    assert body["items"][-1]["datetime"] == "2026-11-12T16:59:59.999999Z"
 
 
 def test_multiple_days(api):
@@ -110,7 +111,7 @@ BAD_FILTERS = [
         "", "unknown", "2026-13-01", "2026-00-01", "2026-11-32", "2026-02-29",
         "2026-2-01", "2026-02-1", "26-02-01", "2026/02/01", "2026-11-12T00:00:00",
         " 2026-11-12", "2026-11-12\n", "２０２６-１１-１２", "0000-01-01", "10000-01-01",
-        "9999-12-31",
+        "9999-12-31", "0001-01-01",
     ]
 ] + [
     {"date_from": "2026-11-13", "date_to": "2026-11-12"},
@@ -133,15 +134,14 @@ def test_invalid_filters_raise_in_service_and_return_400(api, catalog, params):
 
 
 @pytest.mark.parametrize("value,end", [
-    ("0001-01-01", datetime(1, 1, 2)),
     ("9999-12-30", datetime(9999, 12, 31)),
     ("2028-02-29", datetime(2028, 3, 1)),
 ])
 def test_valid_extreme_and_leap_dates(api, value, end):
     start, actual_end = EventService(None)._resolve_date_filters(date=value, date_from=None, date_to=None)
-    assert start == datetime.fromisoformat(value)
-    assert actual_end == end
-    assert start.tzinfo is actual_end.tzinfo is None
+    assert start == datetime.fromisoformat(value).replace(tzinfo=ZoneInfo("Asia/Novosibirsk")).astimezone(timezone.utc)
+    assert actual_end == end.replace(tzinfo=ZoneInfo("Asia/Novosibirsk")).astimezone(timezone.utc)
+    assert start.tzinfo is actual_end.tzinfo is timezone.utc
     assert api.get("/events/", params={"date": value}).status_code == 200
 
 
@@ -169,11 +169,11 @@ def test_relative_dates_ignore_server_timezone(api, monkeypatch, server_tz, inst
     monkeypatch.setattr(module, "datetime", Clock)
     try:
         bounds = EventService(None)._resolve_date_filters(date=selector, date_from=None, date_to=None)
-        assert bounds == (datetime.fromisoformat(start), datetime.fromisoformat(end))
-        assert all(bound.tzinfo is None for bound in bounds)
+        assert bounds == tuple(datetime.fromisoformat(v).replace(tzinfo=ZoneInfo("Asia/Novosibirsk")).astimezone(timezone.utc) for v in (start, end))
+        assert all(bound.tzinfo is timezone.utc for bound in bounds)
         response = api.get("/events/", params={"date": selector})
         assert response.status_code == 200
-        expected = api.get("/events/", params={"date_from": start, "date_to": (bounds[1] - module.timedelta(days=1)).strftime("%Y-%m-%d")})
+        expected = api.get("/events/", params={"date_from": start, "date_to": (bounds[1].astimezone(ZoneInfo("Asia/Novosibirsk")) - module.timedelta(days=1)).strftime("%Y-%m-%d")})
         assert response.json() == expected.json()
     finally:
         if original_tz is None:

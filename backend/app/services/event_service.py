@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import asc, desc, func, select
+from sqlalchemy import DateTime, asc, bindparam, desc, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
@@ -79,10 +79,12 @@ class EventService:
                 }
             filters.append(Event.category_id == category_obj.id)
 
+        # Search bounds are already UTC and may fall outside the writable event
+        # range (e.g. the exclusive midnight after its last supported day).
         if start:
-            filters.append(Event.datetime >= start)
+            filters.append(Event.datetime >= bindparam("start", start, type_=DateTime(timezone=True)))
         if end:
-            filters.append(Event.datetime < end)
+            filters.append(Event.datetime < bindparam("end", end, type_=DateTime(timezone=True)))
 
         order_expression = self._get_sorting_expression(sort)
 
@@ -320,10 +322,9 @@ class EventService:
             return None, None
         else:
             if date in ("today", "tomorrow", "weekend"):
-                # Only the calendar day uses a zone; SQL boundaries stay naive
-                # until the separate historical-data/timestamptz migration.
+                # Calendar days belong to Novosibirsk, never the process timezone.
                 today = datetime.now(ZoneInfo("Asia/Novosibirsk")).date()
-                start = datetime(today.year, today.month, today.day)
+                start = datetime(today.year, today.month, today.day, tzinfo=ZoneInfo("Asia/Novosibirsk"))
                 if date == "tomorrow":
                     start += timedelta(days=1)
                 elif date == "weekend":
@@ -334,16 +335,16 @@ class EventService:
             else:
                 start = last = self._parse_iso_date(date)
         try:
-            return start, last + timedelta(days=1)
+            return start.astimezone(timezone.utc), (last + timedelta(days=1)).astimezone(timezone.utc)
         except OverflowError as exc:
-            raise InvalidDateFilterError("Last calendar day must be before 9999-12-31") from exc
+            raise InvalidDateFilterError("Calendar range is outside the supported UTC datetime range") from exc
 
     def _parse_iso_date(self, value: Optional[str]) -> datetime:
         if not value or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
             raise InvalidDateFilterError("Date must use YYYY-MM-DD format")
         try:
             y, m, d = map(int, value.split("-"))
-            return datetime(y, m, d, 0, 0, 0)
+            return datetime(y, m, d, 0, 0, 0, tzinfo=ZoneInfo("Asia/Novosibirsk"))
         except (TypeError, ValueError) as exc:
             raise InvalidDateFilterError("Invalid calendar date") from exc
 
