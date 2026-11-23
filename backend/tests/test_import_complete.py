@@ -287,3 +287,43 @@ def test_expired_running_on_revoked_source_is_recovered(complete_api):
         db.get(ImportSource,101).state='prohibited'
     assert claim(sessions) is None
     with sessions() as db: assert db.get(ImportRun,task[0]).status=='blocked'
+
+
+def test_lease_lost_during_http_cannot_write_or_finish_new_lease(complete_api):
+    from app.imports.fetcher import SafeFetcher
+    client,sessions,_=complete_api
+    with sessions.begin() as db:
+        for r in db.scalars(select(ImportRun)): r.status='succeeded'
+    enqueue(client,'lease-lost-http');task=claim(sessions);replacement=[]
+    def transport(url,ip,**kwargs):
+        if url.endswith('/robots.txt'): return 200,{},b'User-agent: *\nAllow: /101/\n'
+        with sessions.begin() as db: db.get(ImportRun,task[0]).lease_expires_at=now()-timedelta(seconds=1)
+        replacement.append(claim(sessions))
+        return 200,{'content-type':'application/ld+json'},BODY
+    def factory(source,before):
+        return SafeFetcher(source,before,resolver=lambda *a,**k:['8.8.8.8'],transport=transport)
+    process(sessions,task,fetcher_factory=factory)
+    with sessions() as db:
+        run=db.get(ImportRun,task[0])
+        assert run.status=='running' and run.lease_token==replacement[0][1] and run.lease_token!=task[1]
+        assert run.records_seen==0 and db.query(EventCandidate).count()==3
+
+
+def test_shutdown_during_http_starts_no_next_request(complete_api):
+    import threading
+    from app.imports.fetcher import SafeFetcher
+    client,sessions,_=complete_api
+    with sessions.begin() as db:
+        for r in db.scalars(select(ImportRun)): r.status='succeeded'
+    enqueue(client,'shutdown-http');task=claim(sessions);stop=threading.Event();calls=[]
+    def transport(url,ip,**kwargs):
+        calls.append(url);stop.set()
+        return 200,{},b'User-agent: *\nAllow: /101/\n'
+    def factory(source,before):
+        return SafeFetcher(source,before,resolver=lambda *a,**k:['8.8.8.8'],transport=transport)
+    process(sessions,task,stop=stop,fetcher_factory=factory)
+    assert len(calls)==1 and calls[0].endswith('/robots.txt')
+    with sessions() as db:
+        run=db.get(ImportRun,task[0])
+        assert run.status=='interrupted' and run.lease_token is None
+        assert run.records_seen==0 and db.query(EventCandidate).count()==3
