@@ -68,7 +68,11 @@ image uploads and `POST /auth/register`.
 
 Event datetime writes require ISO 8601 with an explicit UTC offset, for example
 `2026-11-12T12:00:00+07:00`; responses normalize to `2026-11-12T05:00:00Z`.
-Naive strings, date-only values and numeric epochs return 422. PostgreSQL uses
+Naive strings, date-only values and numeric epochs return 422. Supported event
+instants are **1900-01-01T00:00:00Z through 2100-12-31T23:59:59.999999Z**, inclusive.
+Range validation follows UTC normalization and runs before writes in both API
+and ORM. This leaves headroom for PostgreSQL driver conversion to session zones;
+out-of-range POST/PUT returns 422 without committing changes. PostgreSQL uses
 `timestamptz`; SQLite encodes UTC and the ORM restores the offset. Calendar
 filters use Asia/Novosibirsk days, not the server/process timezone. A calendar
 range that cannot be represented in UTC returns 400 (including 0001-01-01).

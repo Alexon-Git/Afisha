@@ -171,3 +171,104 @@ def test_populated_migration_refuses_without_changes(time_database):
         assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0003_event_metadata'
         assert connection.execute(text('SELECT * FROM events')).mappings().all() == before
         assert not next(c for c in inspect(connection).get_columns('events') if c['name']=='datetime')['type'].timezone
+
+
+INVALID_INSTANTS = (
+    '9999-12-31T23:59:59Z',
+    '0001-01-01T00:00:00Z',
+    '1899-12-31T23:59:59.999999Z',
+    '2101-01-01T00:00:00Z',
+    '1900-01-01T00:00:00+07:00',  # Wall-clock year alone would falsely allow it.
+    '2100-12-31T23:59:59.999999-08:00',
+)
+VALID_INSTANTS = (
+    '2026-11-23T12:00:00+07:00',
+    '1900-01-01T00:00:00Z',
+    '2100-12-31T23:59:59.999999Z',
+    '1899-12-31T16:00:00-08:00',  # Local year outside the range, instant on bound.
+    '2101-01-01T06:59:59.999999+07:00',
+)
+
+
+def test_date_range_rejects_before_writes_and_preserves_readability(time_database, tmp_path, monkeypatch):
+    engine, url = time_database
+    upgrade(url, 'head')
+    sessions = sessionmaker(bind=engine)
+    with sessions.begin() as db:
+        db.add(User(id=1, username='range-admin', password_hash='test-only', is_admin=True))
+    with engine.connect() as connection:
+        if engine.dialect.name == 'postgresql':
+            assert connection.execute(text('SHOW TimeZone')).scalar() == os.environ['TZ']
+    previous = app.dependency_overrides.copy()
+
+    def database():
+        with sessions() as db:
+            yield db
+
+    app.dependency_overrides[get_db] = database
+    app.dependency_overrides[get_current_admin_user] = lambda: User(id=1, is_admin=True)
+    monkeypatch.setattr(EventService, '_UPLOAD_DIR', tmp_path / 'uploads')
+    payload = dict(title='Preserved', description='Original', datetime=VALID_INSTANTS[0], location='Novosibirsk')
+
+    def stored_rows():
+        with engine.connect() as connection:
+            return connection.execute(text('SELECT * FROM events ORDER BY id')).mappings().all()
+
+    try:
+        with TestClient(app) as client:
+            created = client.post('/events/', json=payload)
+            assert created.status_code == 200, created.text
+            identifier = created.json()['id']
+            for bad in INVALID_INSTANTS:
+                before = stored_rows()
+                response = client.post('/events/', json={**payload, 'title': 'Must not exist', 'datetime': bad})
+                assert response.status_code == 422, response.text
+                assert stored_rows() == before  # No committed row, not just an error response.
+                response = client.put(f'/events/{identifier}', json={
+                    'datetime': bad, 'title': 'Must not change', 'description': 'Changed', 'location': 'Elsewhere'})
+                assert response.status_code == 422, response.text
+                assert stored_rows() == before  # All fields are unchanged, not only datetime.
+                listing = client.get('/admin/events/')
+                assert listing.status_code == 200, listing.text
+                assert listing.json()['total_items'] == len(before)
+                assert client.get(f'/admin/events/{identifier}').status_code == 200
+                # Neither rejection poisons subsequent sessions/transactions.
+                assert client.post('/events/', json=payload).status_code == 200
+                assert client.put(f'/events/{identifier}', json={'datetime': VALID_INSTANTS[0]}).status_code == 200
+            for good in VALID_INSTANTS:
+                expected = datetime.fromisoformat(good).astimezone(timezone.utc)
+                for response in (client.post('/events/', json={**payload, 'datetime': good}),
+                                 client.put(f'/events/{identifier}', json={'datetime': good})):
+                    assert response.status_code == 200, response.text
+                    assert response.json()['datetime'].endswith('Z')
+                    assert datetime.fromisoformat(response.json()['datetime']) == expected
+                fetched = client.get(f'/admin/events/{identifier}')
+                assert fetched.status_code == 200
+                assert datetime.fromisoformat(fetched.json()['datetime']) == expected
+            # Last writable instant belongs to 2101-01-01 in Novosibirsk. Query
+            # bounds outside the write range must not reject valid stored events.
+            for params in ({'date': '2101-01-01'}, {'date_from': '2101-01-01', 'date_to': '2101-01-01'}):
+                response = client.get('/admin/events/', params=params)
+                assert response.status_code == 200, response.text
+                assert identifier in [item['id'] for item in response.json()['items']]
+            with sessions() as db:
+                original = db.get(Event, identifier).datetime
+            for bad in INVALID_INSTANTS:
+                before = stored_rows()
+                with sessions() as db:
+                    db.add(Event(title='Rejected ORM', datetime=datetime.fromisoformat(bad), location='NSK'))
+                    with pytest.raises(StatementError, match='1900-01-01'):
+                        db.commit()
+                    db.rollback()
+                    item = db.get(Event, identifier)
+                    item.datetime = datetime.fromisoformat(bad)
+                    item.title = 'Rejected ORM update'
+                    with pytest.raises(StatementError, match='1900-01-01'):
+                        db.commit()
+                    db.rollback()
+                    assert db.get(Event, identifier).datetime == original
+                assert stored_rows() == before
+            assert client.get('/admin/events/').status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(previous)

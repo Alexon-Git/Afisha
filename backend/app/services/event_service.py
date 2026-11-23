@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import asc, desc, func, select
+from sqlalchemy import DateTime, asc, bindparam, desc, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
@@ -79,10 +79,12 @@ class EventService:
                 }
             filters.append(Event.category_id == category_obj.id)
 
+        # Search bounds are already UTC and may fall outside the writable event
+        # range (e.g. the exclusive midnight after its last supported day).
         if start:
-            filters.append(Event.datetime >= start)
+            filters.append(Event.datetime >= bindparam("start", start, type_=DateTime(timezone=True)))
         if end:
-            filters.append(Event.datetime < end)
+            filters.append(Event.datetime < bindparam("end", end, type_=DateTime(timezone=True)))
 
         order_expression = self._get_sorting_expression(sort)
 

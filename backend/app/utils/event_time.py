@@ -7,6 +7,10 @@ from sqlalchemy import DateTime
 from sqlalchemy.types import TypeDecorator
 
 
+EVENT_INSTANT_MIN = datetime(1900, 1, 1, tzinfo=timezone.utc)
+EVENT_INSTANT_MAX = datetime(2100, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
+
+
 def iso_datetime(value):
     if isinstance(value, str):
         try:
@@ -22,9 +26,14 @@ def as_utc(value):
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("Event datetime requires an explicit UTC offset")
     try:
-        return value.astimezone(timezone.utc)
+        value = value.astimezone(timezone.utc)
     except (OverflowError, ValueError) as exc:
         raise ValueError("Event instant is outside the supported UTC range") from exc
+    # Leave ample room for driver conversion to a PostgreSQL session timezone.
+    # Validate the instant, not its incoming wall-clock year or offset.
+    if not EVENT_INSTANT_MIN <= value <= EVENT_INSTANT_MAX:
+        raise ValueError("Event instant must be between 1900-01-01T00:00:00Z and 2100-12-31T23:59:59.999999Z")
+    return value
 
 
 EventInstant = Annotated[AwareDatetime, BeforeValidator(iso_datetime), AfterValidator(as_utc)]
