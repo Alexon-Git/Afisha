@@ -30,7 +30,7 @@ def test_fresh_database_migrates_and_repeat_is_safe(tmp_path):
         assert {"users", "events", "categories", "login_attempts", "alembic_version"} <= tables
         cols = {row[1] for row in conn.execute("PRAGMA table_info(events)")}
         assert {"title", "datetime", "category_id", "payment_url"} <= cols
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0004_event_datetime_utc"
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0005_import_schema"
     again = run_upgrade(db)
     assert again.returncode == 0, again.stderr
 
