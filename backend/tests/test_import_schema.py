@@ -2,6 +2,9 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 import os
+import subprocess
+import sys
+from textwrap import dedent
 from uuid import uuid4
 
 from alembic.autogenerate import compare_metadata
@@ -189,3 +192,65 @@ def test_time_and_decimal(storage):
     for values in [dict(end_at=datetime(2026, 11, 22, tzinfo=timezone.utc)), dict(price_max=Decimal('1.00'))]:
         with pytest.raises(IntegrityError), db.begin_nested():
             db.execute(EventCandidate.__table__.update().values(**values))
+
+
+def test_standard_sqlite_engine_preserves_deleted_event_history(tmp_path):
+    """Use app.database unchanged in a fresh process, without a test PRAGMA hook."""
+    url = f"sqlite:///{tmp_path / 'application.db'}"
+    upgrade(url, 'head')
+    script = dedent("""
+        from decimal import Decimal
+        from datetime import datetime, timezone
+        from sqlalchemy import text
+        from app.database import engine, SessionLocal
+        from app.models import CandidateMatch, Event, EventCandidate, ImportRun, ImportSource
+
+        # Two concurrent physical connections plus a fresh one after pool disposal.
+        with engine.connect() as first, engine.connect() as second:
+            assert first.exec_driver_sql('PRAGMA foreign_keys').scalar() == 1
+            assert second.exec_driver_sql('PRAGMA foreign_keys').scalar() == 1
+        engine.dispose()
+        with engine.connect() as fresh:
+            assert fresh.exec_driver_sql('PRAGMA foreign_keys').scalar() == 1
+
+        with SessionLocal.begin() as db:
+            db.execute(text("INSERT INTO users (id,username,password_hash,is_admin) VALUES (1,'synthetic','not-real',true)"))
+            source = ImportSource(name='Synthetic', base_url='https://example.invalid/',
+                base_origin='https://example.invalid', base_path='/',
+                source_type='official_site', adapter_key='jsonld_html')
+            db.add(source)
+            db.flush()
+            run = ImportRun(source_id=source.id, requested_by=1, requested_url=source.base_url,
+                policy_version=1, adapter_version='test', idempotency_key='test', request_fingerprint='a'*64)
+            db.add(run)
+            db.flush()
+            for identifier in (1, 2):
+                db.add(Event(id=identifier, title='Synthetic', location='NSK',
+                    datetime=datetime(2026, 11, 23, 11, tzinfo=timezone.utc)))
+                db.flush()
+                candidate = EventCandidate(id=identifier, source_id=source.id,
+                    first_run_id=run.id, last_run_id=run.id, source_url=source.base_url,
+                    canonical_source_url=source.base_url, source_item_key=str(identifier),
+                    content_fingerprint='b'*64, linked_event_id=identifier, link_kind='existing')
+                db.add(candidate)
+                db.flush()
+                db.add(CandidateMatch(candidate_id=identifier, event_id=identifier,
+                    historical_event_id=identifier, reason_codes=['same_time'],
+                    score=Decimal('0.75'), compared_event_fingerprint='c'*64, candidate_revision=1))
+        with SessionLocal.begin() as db:
+            db.delete(db.get(Event, 1))
+            db.execute(text('DELETE FROM events WHERE id=2'))
+        with SessionLocal() as db:
+            assert db.query(Event).count() == 0
+            assert db.query(EventCandidate).count() == db.query(CandidateMatch).count() == 2
+            for identifier in (1, 2):
+                candidate = db.get(EventCandidate, identifier)
+                match = db.query(CandidateMatch).filter_by(candidate_id=identifier).one()
+                assert candidate.linked_event_id is None and candidate.lost_event_link is True
+                assert match.event_id is None and match.historical_event_id == identifier
+                assert match.reason_codes == ['same_time'] and match.score == Decimal('0.75')
+        engine.dispose()
+    """)
+    result = subprocess.run([sys.executable, '-c', script],
+        env=dict(os.environ, DATABASE_URL=url), capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr

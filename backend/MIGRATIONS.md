@@ -230,3 +230,12 @@ CI afisha_pr8/pr8_test; каждый прогон работает в своём
 Downgrade удаляет все четыре таблицы и импортную историю. Старые Event/Organizer
 сохраняются, но реальный rollback требует отдельного backup/export и плана.
 Не применять migration или downgrade к production в рамках этой задачи.
+
+
+### P2 review PR #30: SQLite runtime FK enforcement
+
+Стандартный SQLite engine приложения включает `PRAGMA foreign_keys=ON` на каждом
+новом DBAPI-подключении. Это необходимо для SET NULL и флага lost_event_link при
+удалении Event. PostgreSQL и DDL 0005 не меняются. Регрессионный тест использует
+обычные engine/SessionLocal в отдельном процессе с DATABASE_URL временной БД,
+без test-only FK listener; проверяет ORM/SQL DELETE и новые подключения пула.

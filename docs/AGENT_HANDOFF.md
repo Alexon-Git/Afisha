@@ -1,5 +1,23 @@
 # Передача контекста следующему агенту — Afisha
 
+## PR #30 — исправление P2 SQLite FK (2026-11-23, до повторного review)
+
+- По независимому review исправлен только app.database: каждое SQLite-подключение
+  стандартного engine включает foreign_keys=ON через connect listener.
+  PostgreSQL, модели, миграция 0005, worker/API/UI не меняются.
+- Регрессионный тест запускает стандартные engine/SessionLocal в отдельном процессе
+  на мигрированной временной SQLite, без тестового PRAGMA listener. Проверяет два
+  одновременных подключения и новое после dispose, ORM/SQL DELETE Event, SET NULL,
+  lost_event_link и сохранение CandidateMatch/historical_event_id/reason_codes/score.
+  До исправления тест падает; после — проходит.
+- Целевой suite: 34 passed SQLite (с новой регрессией), 33 passed PostgreSQL17.
+  Полный backend: 438 passed, 45 PG opt-in skipped, 344 warnings; побочных эффектов
+  в прежних тестах нет. Compileall и diff-check успешны. CI проверяется на новом HEAD.
+  Тестовый PostgreSQL остановлен; volumes/production/VPS не затрагивались.
+- Соответствие source_id кандидата и его runs остаётся отдельной задачей до worker;
+  в этом исправлении схема не расширяется. Merge/deploy не выполняются.
+
+
 ## PR-14A.1 — ядро хранения импорта (2026-11-23, до review/merge)
 
 - По прямому поручению владельца реализован только слой схемы из локального
