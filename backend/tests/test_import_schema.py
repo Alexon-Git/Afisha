@@ -135,6 +135,9 @@ def test_unique_and_restrict(storage):
     db, source, run, candidate = storage
     for model, original in [(ImportSource, source), (ImportRun, run), (EventCandidate, candidate)]:
         values = {col.name: getattr(original, col.name) for col in model.__table__.columns if col.name != 'id'}
+        # Explicit fixture IDs do not advance PostgreSQL sequences. Use a fresh PK
+        # so this proves the identity constraint rather than a primary-key collision.
+        values['id'] = uuid4() if model is ImportRun else 2
         with pytest.raises(IntegrityError), db.begin_nested():
             db.execute(model.__table__.insert().values(**values))
     second = ImportRun(source_id=1, requested_by=1, requested_url=source.base_url, policy_version=1,
