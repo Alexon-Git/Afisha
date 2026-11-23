@@ -7,6 +7,7 @@ from threading import Barrier, Event as ThreadEvent
 from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy import delete, event, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from app.auth.auth import create_access_token
@@ -155,15 +156,13 @@ def test_stale_revision_and_run_source_mismatch(review_api,action,body):
     with sessions.begin() as db:
         db.get(EventCandidate,101).revision = 2
     assert client.post(BASE+'/101/'+action,json=body).status_code == 409
+    # 0006 blocks corrupt provenance before moderation, for both linked runs.
     for field in ['first_run_id','last_run_id']:
-        with sessions.begin() as db:
-            db.get(EventCandidate,101).revision = 1
+        with pytest.raises(IntegrityError), sessions.begin() as db:
             setattr(db.get(EventCandidate,101),field,runs[1])
-        assert client.post(BASE+'/101/'+action,json=body).status_code == 409
-        with sessions.begin() as db:
-            c = db.get(EventCandidate,101)
-            assert c.review_status == 'pending' and c.reviewed_at is None
-            setattr(c,field,runs[0])
+        with sessions() as db:
+            assert db.get(EventCandidate,101).reviewed_at is None
+
 
 
 @pytest.mark.parametrize('field,value',[('reviewed_by',2),('reviewed_at','2026-01-01T00:00:00Z'),
@@ -210,7 +209,8 @@ def test_postgresql_parallel_editors(review_api,import_database,actions):
     client,sessions,_ = review_api
     barrier = Barrier(2)
     def rendezvous(conn,cursor,statement,parameters,context,many):
-        if 'FROM event_candidates' in statement and 'FOR UPDATE' in statement:
+        # Both requests rendezvous before entering the new shared writer lock.
+        if 'pg_advisory_xact_lock' in statement:
             barrier.wait(timeout=10)
     event.listen(import_database,'before_cursor_execute',rendezvous)
     def decide(item):

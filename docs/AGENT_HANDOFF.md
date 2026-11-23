@@ -1,5 +1,36 @@
 # Передача контекста следующему агенту — Afisha
 
+## PR #32 — P2 сетевого deadline (2026-11-23)
+
+- Только fetcher и регрессии: единый 20с бюджет DNS -> TCP -> TLS -> headers/body,
+  watchdog shutdown сокета против slow headers, timeout каждой фазы не больше
+  оставшегося бюджета. Не меняются worker, dedup, UI или миграции.
+- Lease остаётся 45с: старый token после HTTP не может записать кандидата или
+  завершить новый lease; stop event не допускает следующего запроса. Текущий HTTP
+  при shutdown ограничен сетевым deadline; DNS-потоки остаются bounded/daemon.
+- Целевые SQLite/изолированная PG17: 140 passed, 2 skipped; compileall/diff-check
+  успешны. Новый CI проверяется на опубликованном fix SHA в итоговом PR/отчёте.
+  Production/merge/deploy не выполняются; тестовые volumes сохраняются.
+
+
+## PR-14 — завершение полуавтоматического импорта (2026-11-23, до review/merge)
+
+- Ветка `feature/pr14-complete-import`, база origin/master `1bf9e56` (PR #30/#31).
+- Добавлены atomic promote/link, revisioned правка/recheck, очередь запусков,
+  PostgreSQL worker с leases/fencing/retry/восстановлением, JSON-LD adapter,
+  pinned-IP fetcher, дедупликация и минимальный экран React `/admin/import`.
+- 0006 добавляет attempt_count и DB-триггеры provenance/неизменности run.source_id;
+  0005 и Event-модель/публичные правила не меняются. Все новые Event только draft,
+  verified_at=NULL. Источники не включаются seed/API; live ждёт разрешения.
+- Контракт, лимиты, запуск и ограничения: [IMPORT_WORKER.md](IMPORT_WORKER.md).
+- Целевые SQLite+PG17: 297 passed, 6 skipped; frontend import: 5 passed;
+  существующая форма: 39 passed; полный frontend: 80 passed; React build успешен.
+  Полный backend с PG17: 703 passed, 18 skipped; compileall/diff-check OK.
+  Финальный CI проверяется на опубликованном HEAD в итоговом PR/отчёте.
+- Production/VPS/старые volumes/stash не затрагиваются, merge/deploy запрещены.
+  Следующее действие — независимое review одного итогового PR, не новая задача.
+
+
 ## PR-14A.2a — административная модерация импорта (2026-11-23)
 
 - PR #30 merged: master `9e6135d934fb0b930633e6f9913f23fcb3fe81f8`,

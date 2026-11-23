@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import select, update, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..models.imports import CandidateMatch, EventCandidate, ImportRun, ImportSource
@@ -19,6 +19,8 @@ def candidate_detail(db, candidate):
 
 def moderate_candidate(db, candidate_id, change, actor_id, decision):
     try:
+        if db.bind.dialect.name == 'postgresql':
+            db.execute(text('SELECT pg_advisory_xact_lock(14414002)'))
         # Auth has already read through this session. Lock + refresh prevents a
         # cached ORM object from hiding another editor's committed decision.
         candidate = db.scalar(select(EventCandidate).where(EventCandidate.id == candidate_id)

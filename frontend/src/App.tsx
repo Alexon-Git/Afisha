@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import ImportDashboard from './pages/ImportDashboard';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -10,6 +11,7 @@ function App() {
     <Router basename="/admin">
       <div className="App">
         <Routes>
+          <Route path="/import" element={<ProtectedRoute><ImportDashboard /></ProtectedRoute>} />
           <Route path="/login" element={<AdminLogin />} />
           <Route 
             path="/"
