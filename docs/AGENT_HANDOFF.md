@@ -1,5 +1,61 @@
 # Передача контекста следующему агенту — Afisha
 
+## PR #30 — исправление P2 SQLite FK (2026-11-23, до повторного review)
+
+- По независимому review исправлен только app.database: каждое SQLite-подключение
+  стандартного engine включает foreign_keys=ON через connect listener.
+  PostgreSQL, модели, миграция 0005, worker/API/UI не меняются.
+- Регрессионный тест запускает стандартные engine/SessionLocal в отдельном процессе
+  на мигрированной временной SQLite, без тестового PRAGMA listener. Проверяет два
+  одновременных подключения и новое после dispose, ORM/SQL DELETE Event, SET NULL,
+  lost_event_link и сохранение CandidateMatch/historical_event_id/reason_codes/score.
+  До исправления тест падает; после — проходит.
+- Целевой suite: 34 passed SQLite (с новой регрессией), 33 passed PostgreSQL17.
+  Полный backend: 438 passed, 45 PG opt-in skipped, 344 warnings; побочных эффектов
+  в прежних тестах нет. Compileall и diff-check успешны. CI проверяется на новом HEAD.
+  Тестовый PostgreSQL остановлен; volumes/production/VPS не затрагивались.
+- Соответствие source_id кандидата и его runs остаётся отдельной задачей до worker;
+  в этом исправлении схема не расширяется. Merge/deploy не выполняются.
+
+
+## PR-14A.1 — ядро хранения импорта (2026-11-23, до review/merge)
+
+- По прямому поручению владельца реализован только слой схемы из локального
+  `docs/plans/PR14_IMPORT_ARCHITECTURE.md` основной рабочей папки. Остальные части
+  плана не разрешены этой задачей. База: origin/master
+  `6b47007fe7a4b1bc442e6628ac3f01feac0bf12c`, PR #29 merged; merge CI
+  [45117558497](https://github.com/Alexon-Git/Afisha/actions/runs/45117558497) success.
+- Четыре модели в `backend/app/models/imports.py`, зарегистрированы в metadata;
+  одна аддитивная миграция `0005_import_schema` от `0004_event_datetime_utc`.
+  Старые модели/таблицы/данные Event и Organizer не меняются; seed нет.
+- UUID запуска, строковые CHECK-статусы, FK/unique/индексы, частичный unique
+  running/source, неотрицательные счётчики, положительные revisions,
+  Numeric(18,4) цен, timestamptz/aware UTC, JSONB (SQLite JSON) до 16384 символов.
+  `base_origin`/`base_path` хранят нормализованную идентичность источника;
+  нормализация и проверка URL будут реализованы отдельно.
+- Удаление Event: nullable FK SET NULL сохраняют кандидатов/matches и
+  `historical_event_id` (писатель обязан передать snapshot event_id). Триггеры
+  только на новых таблицах ставят отдельный флаг-предупреждение `lost_event_link`,
+  не переписывая JSON и не рискуя превысить его размер при DELETE Event.
+  Триггеры устанавливаются миграцией, не `metadata.create_all`.
+- Только хранилище: здесь нет policy/SSRF/HTTP/парсеров, worker, API, UI,
+  переходов review/revision, конвертации, автопубликации или реальных источников.
+  Прямой SQL/ORM не считается авторизованным workflow; будущий сервис обязан
+  проверять policy, revision, решения редактора и форму JSON. Поля VARCHAR
+  ограничены PostgreSQL; SQLite не является доказательством проверок длины строк.
+- Проверки: целевые import-schema **33 passed на PostgreSQL 17 + 33 passed
+  на SQLite** (включая upgrade/repeat, сохранность всех прежних таблиц,
+  metadata, FK/unique/CHECK, DELETE Event и отсутствие автопубликации).
+  Единственный полный локальный backend-прогон: 433 passed, 45 skipped,
+  4 проверки остановлены окружением (локальный порт/старая python-multipart).
+  После временного подключения закреплённой python-multipart 0.0.33 и разрешения
+  локального порта перепроверены только эти четыре — **4 passed**.
+  Полного повторного локального прогона нет; полный suite и PG17 проверяет CI HEAD.
+  Compileall и git diff --check успешны. Frontend локально не прогонялся: изменений нет.
+- Downgrade удаляет импортную историю; на реальных данных требует отдельного
+  backup/export и согласованного плана. Production/VPS/volumes не затронуты.
+
+
 **Состояние на:** 2026-11-12  
 **Репозиторий:** https://github.com/Alexon-Git/Afisha  
 **Default branch:** `master`  

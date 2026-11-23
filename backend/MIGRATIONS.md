@@ -207,3 +207,35 @@ HTTP CRUD/verify/publication/status/фильтры/сортировка при �
 PostgreSQL-половину матрицы; обычный SQLite suite её пропускает без opt-in URL.
 Ранее подготовленный focused checker сохранён в migration_drafts/check_empty_migration.py,
 теперь проверяет активную цепочку. Аудит и история: ../docs/audits/PR8_TIME_DATA_AUDIT.md.
+
+
+## PR-14A.1: импортная схема, 0005_import_schema (2026-11-23)
+
+Одна аддитивная revision после 0004: import_sources/import_runs/event_candidates/
+import_candidate_matches. Существующие таблицы/строки не меняются; seed отсутствует.
+Статусы pending_review/queued/pending/suggested по умолчанию; записи кандидатов
+не создают и не публикуют Event. Проверены populated 0004 → head, повторный upgrade,
+ORM/metadata, FK/unique/CHECK и удаление Event с сохранением импортной истории.
+Новый циклический FK run.recheck_candidate_id добавляется после обеих новых таблиц
+на PostgreSQL; SQLite использует inline FK. Триггеры на двух новых таблицах ставят
+candidate.lost_event_link при SET NULL; Event и Organizer не имеют новых триггеров.
+
+Изолированные синтетические проверки:
+`AFISHA_PR14_TEST_DATABASE_URL=... python -m pytest -q tests/test_import_schema.py -k postgresql`.
+URL допускает только localhost с тестовой парой afisha_pr14/pr14_test либо
+CI afisha_pr8/pr8_test; каждый прогон работает в своём случайном pr14_* schema.
+Без opt-in PostgreSQL skipped; SQLite запускается всегда с FK enforcement.
+Нельзя передавать production URL. Тестовый schema удаляется, volumes не удаляются.
+
+Downgrade удаляет все четыре таблицы и импортную историю. Старые Event/Organizer
+сохраняются, но реальный rollback требует отдельного backup/export и плана.
+Не применять migration или downgrade к production в рамках этой задачи.
+
+
+### P2 review PR #30: SQLite runtime FK enforcement
+
+Стандартный SQLite engine приложения включает `PRAGMA foreign_keys=ON` на каждом
+новом DBAPI-подключении. Это необходимо для SET NULL и флага lost_event_link при
+удалении Event. PostgreSQL и DDL 0005 не меняются. Регрессионный тест использует
+обычные engine/SessionLocal в отдельном процессе с DATABASE_URL временной БД,
+без test-only FK listener; проверяет ORM/SQL DELETE и новые подключения пула.
