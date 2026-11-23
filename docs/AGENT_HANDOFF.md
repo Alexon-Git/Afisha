@@ -1,5 +1,23 @@
 # Передача контекста следующему агенту — Afisha
 
+## PR-14A.2a — административная модерация импорта (2026-11-23)
+
+- PR #30 merged: master `9e6135d934fb0b930633e6f9913f23fcb3fe81f8`,
+  [merge CI 45123943836](https://github.com/Alexon-Git/Afisha/actions/runs/45123943836) success.
+- Ветка feature/pr14-import-review-api. Только GET list/detail и POST approve/reject
+  по `/admin/import/candidates`; реальный admin из БД, закрытые audit-поля,
+  revision/status conflicts, row locks + conditional update, атомарный commit/rollback.
+- Проверка source_id обоих first/last runs при каждом решении; без новой миграции.
+  Это не DB-гарантия для будущего worker, его писателей нужно защитить отдельно.
+- Approved требует разрешённого времени и явных решений по организатору/matches.
+  Все повторы 409. Match acknowledgements сохраняются в reviewed_payload;
+  CandidateMatch и Event не изменяются. Контракт: [IMPORT_REVIEW_API.md](IMPORT_REVIEW_API.md).
+- Целевые SQLite/PG17: 104 passed, 4 SQLite-only concurrency skips.
+  Полный backend (один прогон): 488 passed, 103 skipped, 398 warnings.
+  Compileall и diff-check успешны; CI будет проверен на опубликованном HEAD.
+- Схема, модели, UI, сеть/worker, link/promote, verified_at/публикация не меняются.
+  Production/VPS/volumes не используются; merge/deploy запрещены в этой задаче.
+
 ## PR #30 — исправление P2 SQLite FK (2026-11-23, до повторного review)
 
 - По независимому review исправлен только app.database: каждое SQLite-подключение
