@@ -121,6 +121,21 @@ try {
   assert.doesNotMatch(detail, /href="https:\/\/payments.example.test/);
   assert.doesNotMatch(detail, /type="application\/ld\+json"/);
   assert.match(detail, new RegExp(`rel="canonical" href="${base}/events/1"`));
+  // Real SSR output, no database: the same fixture must agree across all public views.
+  const originalEvents = events;
+  for (const [price, label] of [[0, 'Бесплатно'], [1500, '1\u00a0500 ₽'], [null, 'Стоимость уточняется']]) {
+    events = [{ ...fixture, price }];
+    for (const path of ['/', '/events', '/events/1']) {
+      const rendered = await html(base, path);
+      const priceElement = path === '/events/1'
+        ? rendered.match(/<dt>Стоимость<\/dt><dd>([^<]*)<\/dd>/)
+        : rendered.match(/class="card-bottom"><span>([^<]*)<\/span>/);
+      assert.ok(priceElement, `price element: ${path}`);
+      assert.equal(priceElement[1], label, `${path}: price ${price}`);
+      if (price === null) assert.doesNotMatch(rendered, /Бесплатно/);
+    }
+  }
+  events = originalEvents;
   for (const id of ['4', '5', '99999', 'abc', '2147483648']) await html(base, `/events/${id}`, 404);
   for (const [id, message] of [[2, 'отменено'], [3, 'перенесено']]) {
     const response = await html(base, `/events/${id}`);

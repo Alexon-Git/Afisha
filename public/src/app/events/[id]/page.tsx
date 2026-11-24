@@ -1,3 +1,4 @@
+import { formatEventPrice } from '../../../domain/price';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { getPublishedEvent } from '../../../api/server';
@@ -54,7 +55,7 @@ export default async function EventPage({ params }: Props) {
     </div><aside className="event-summary" aria-label="Информация о мероприятии">
       <dl><dt>Дата и время</dt><dd><EventDate value={event.datetime} /></dd><dt>Место</dt><dd>{event.location}</dd>
         {event.organizer?.name && <><dt>Организатор</dt><dd>{event.organizer.name}</dd></>}
-        <dt>Стоимость</dt><dd>{event.price !== null && event.price > 0 ? `${event.price.toLocaleString('ru-RU')} ₽` : 'Уточняйте у организатора'}</dd>
+        <dt>Стоимость</dt><dd>{formatEventPrice(event.price)}</dd>
       </dl><DateNote />
       {active && url ? <a className="button registration" href={url} target="_blank" rel="noopener noreferrer nofollow">Перейти к регистрации ↗</a> : <p>{active ? 'Ссылка на регистрацию уточняется.' : 'Регистрация приостановлена. Проверьте актуальную информацию в первоисточнике.'}</p>}
     </aside></div>
