@@ -26,3 +26,15 @@ export function calendarToday(now = new Date()): string {
   }).formatToParts(now);
   return ['year', 'month', 'day'].map(name => parts.find(part => part.type === name)?.value).join('-');
 }
+
+/** One SSR/browser-independent period display, always in Novosibirsk. */
+export function eventPeriod(value: string, endAt?: string | null) {
+  const start = eventDate(value);
+  if (!start) return null;
+  const end = endAt ? eventDate(endAt) : null;
+  const validEnd = start.aware && end?.aware && Date.parse(endAt!) > Date.parse(value) ? end : null;
+  const label = !validEnd ? `${start.date} · ${start.time}`
+    : start.date === validEnd.date ? `${start.date} · ${start.time}–${validEnd.time}`
+    : `${start.date}, ${start.time} — ${validEnd.date}, ${validEnd.time}`;
+  return { ...start, label };
+}

@@ -44,6 +44,7 @@ class EventBase(BaseModel):
     title: str
     description: Optional[str] = None
     datetime: EventInstant
+    end_at: Optional[EventInstant] = None
     location: str
     image_url: Optional[str] = None
     category_id: Optional[int] = None
@@ -54,6 +55,12 @@ class EventBase(BaseModel):
 
 
 class EventCreate(EventBase, EventMetadataInput):
+    @model_validator(mode="after")
+    def valid_period(self):
+        if self.end_at is not None and self.end_at <= self.datetime:
+            raise ValueError("end_at must be strictly after datetime")
+        return self
+
     price: Optional[int] = Field(default=None, ge=0)
     rating: Optional[float] = Field(default=None, ge=0, le=10)
     discount: Optional[int] = Field(default=None, ge=0, le=100)
@@ -63,6 +70,7 @@ class EventUpdate(EventMetadataInput):
     title: Optional[str] = None
     description: Optional[str] = None
     datetime: Optional[EventInstant] = None
+    end_at: Optional[EventInstant] = None
     location: Optional[str] = None
     image_url: Optional[str] = None
     category_id: Optional[int] = None

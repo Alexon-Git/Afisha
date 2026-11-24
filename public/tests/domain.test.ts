@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { eventDate, calendarToday } from '../src/domain/dates.ts';
+import { eventDate, eventPeriod, calendarToday } from '../src/domain/dates.ts';
 import { catalogQuery, catalogLink, eventId } from '../src/domain/catalog.ts';
 import { externalUrl, imagePath, siteOrigin } from '../src/domain/safety.ts';
 import { eventJsonLd, pageMetadata } from '../src/domain/seo.ts';
@@ -85,4 +85,26 @@ test('JSON-LD omits naive dates and escapes editorial script payloads', () => {
     assert.equal(JSON.parse(result).offers, undefined);
     assert.equal(eventJsonLd({ ...fixture, publication_status: 'draft' }), null);
   } finally { if (original === undefined) delete process.env.SITE_URL; else process.env.SITE_URL = original; }
+});
+
+
+test('period formatting uses Novosibirsk for missing, same-day and multi-day ends', () => {
+  const start = '2026-11-26T03:00:00Z';
+  assert.equal(eventPeriod(start)?.label, '26 ноября 2026 г. · 10:00');
+  assert.equal(eventPeriod(start, null)?.label, eventPeriod(start)?.label);
+  assert.equal(eventPeriod(start, '2026-11-26T11:00:00Z')?.label, '26 ноября 2026 г. · 10:00–18:00');
+  assert.equal(eventPeriod(start, '2026-11-28T11:00:00Z')?.label, '26 ноября 2026 г., 10:00 — 28 ноября 2026 г., 18:00');
+  assert.equal(eventPeriod('2026-11-26T16:30:00Z', '2026-11-26T17:30:00Z')?.label,
+    '26 ноября 2026 г., 23:30 — 27 ноября 2026 г., 00:30');
+  assert.equal(eventPeriod(start, 'invalid')?.label, eventPeriod(start)?.label);
+});
+
+test('JSON-LD endDate is explicit and optional, never synthesized', () => {
+  process.env.SITE_URL = 'https://example.org';
+  try {
+    const event = { ...fixture, datetime: '2026-11-26T03:00:00Z' };
+    assert.equal(JSON.parse(eventJsonLd(event)!).endDate, undefined);
+    assert.equal(JSON.parse(eventJsonLd({ ...event, end_at: null })!).endDate, undefined);
+    assert.equal(JSON.parse(eventJsonLd({ ...event, end_at: '2026-11-28T18:00:00+07:00' })!).endDate, '2026-11-28T11:00:00.000Z');
+  } finally { delete process.env.SITE_URL; }
 });

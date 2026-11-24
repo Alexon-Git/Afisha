@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import DateTime, asc, bindparam, desc, func, select
+from sqlalchemy import DateTime, asc, bindparam, desc, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
@@ -39,7 +39,7 @@ class EventService:
     _IMAGE_EXTENSIONS = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
     _BASE_DIR = Path(__file__).resolve().parents[1]
     _UPLOAD_DIR = _BASE_DIR / "static" / "uploads"
-    _CRITICAL_FIELDS = {"title", "datetime", "location", "organizer_id", "event_url", "source"}
+    _CRITICAL_FIELDS = {"title", "datetime", "end_at", "location", "organizer_id", "event_url", "source"}
 
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -82,7 +82,11 @@ class EventService:
         # Search bounds are already UTC and may fall outside the writable event
         # range (e.g. the exclusive midnight after its last supported day).
         if start:
-            filters.append(Event.datetime >= bindparam("start", start, type_=DateTime(timezone=True)))
+            lower = bindparam("start", start, type_=DateTime(timezone=True))
+            # [start, end) overlaps the requested calendar window. NULL end
+            # retains the legacy point-in-time semantics (including lower).
+            filters.append(or_(Event.end_at > lower,
+                               (Event.end_at.is_(None) & (Event.datetime >= lower))))
         if end:
             filters.append(Event.datetime < bindparam("end", end, type_=DateTime(timezone=True)))
 
@@ -140,6 +144,7 @@ class EventService:
             self._validate_category(update_data["category_id"])
         if "organizer_id" in update_data:
             self._validate_organizer(update_data["organizer_id"])
+        self._validate_period(db_event, update_data)
         critical_changes = sorted(field for field in self._CRITICAL_FIELDS.intersection(update_data)
                                   if update_data[field] != getattr(db_event, field))
         if db_event.publication_status == PublicationStatus.PUBLISHED:
@@ -202,7 +207,16 @@ class EventService:
     def _utc_now() -> datetime:
         return datetime.now(timezone.utc)
 
+    @staticmethod
+    def _validate_period(item: Event, changes=None) -> None:
+        changes = changes or {}
+        start = changes.get("datetime", item.datetime)
+        end = changes.get("end_at", item.end_at)
+        if end is not None and end <= start:
+            raise PublicationValidationError({"end_at": "End must be strictly after the start"})
+
     def _validate_publication(self, item: Event, changes=None) -> None:
+        self._validate_period(item, changes)
         changes = changes or {}
         def value(name):
             return changes.get(name, getattr(item, name))

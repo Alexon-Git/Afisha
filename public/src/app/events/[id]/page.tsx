@@ -53,7 +53,7 @@ export default async function EventPage({ params }: Props) {
       <section className="description"><h2>О мероприятии</h2><p>{event.description || 'Подробности уточняйте у организатора.'}</p></section>
       {source && <a href={source} target="_blank" rel="noopener noreferrer nofollow">Информация из первоисточника ↗</a>}
     </div><aside className="event-summary" aria-label="Информация о мероприятии">
-      <dl><dt>Дата и время</dt><dd><EventDate value={event.datetime} /></dd><dt>Место</dt><dd>{event.location}</dd>
+      <dl><dt>Дата и время</dt><dd><EventDate value={event.datetime} endAt={event.end_at} /></dd><dt>Место</dt><dd>{event.location}</dd>
         {event.organizer?.name && <><dt>Организатор</dt><dd>{event.organizer.name}</dd></>}
         <dt>Стоимость</dt><dd>{formatEventPrice(event.price)}</dd>
       </dl><DateNote />

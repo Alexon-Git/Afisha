@@ -247,7 +247,7 @@ test('creation keeps the full EventCreate contract', async () => {
   await act(async () => Simulate.submit(form));
   expect(eventsApi.create).toHaveBeenCalledWith({
     title: 'Created', location: 'Novosibirsk', description: '',
-    datetime: '2026-12-15T08:30:00Z', image_url: null,
+    datetime: '2026-12-15T08:30:00Z', end_at: null, image_url: null,
     category_id: null, price: null, rating: null, discount: null, payment_url: null,
     organizer_id: null, event_url: null, source: null,
   });
@@ -392,4 +392,60 @@ test('creation interprets the required November example in Novosibirsk', async (
   change(form.querySelector('input[type="datetime-local"]'), '2026-11-23T18:00');
   await act(async () => Simulate.submit(form));
   expect(eventsApi.create).toHaveBeenCalledWith(expect.objectContaining({ datetime: '2026-11-23T11:00:00Z' }));
+});
+
+test('end date displays in Novosibirsk and unchanged dates stay out of PUT', async () => {
+  const form = await openEditor({ end_at: '2026-11-25T11:00:42.123456Z' });
+  expect(form.querySelector('#event-end-at').value).toBe('2026-11-25T18:00:42.123');
+  change(form.querySelector('textarea'), 'Changed');
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.update).toHaveBeenCalledWith(1, { description: 'Changed' });
+});
+
+test.each([
+  ['2026-11-24T18:00', '2026-11-24T11:00:00Z'],
+  ['', null],
+])('end date edit %s sends only the changed end', async (local, instant) => {
+  const form = await openEditor({ publication_status: 'draft', end_at: '2026-11-25T11:00:00Z' });
+  change(form.querySelector('#event-end-at'), local);
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.update).toHaveBeenCalledWith(1, { end_at: instant });
+});
+
+test('end date-only edits preserve original microseconds', async () => {
+  const form = await openEditor({ publication_status: 'draft', end_at: '2026-11-25T11:00:42.123456Z' });
+  change(form.querySelector('#event-end-at'), '2026-11-26T18:00:42.123');
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.update).toHaveBeenCalledWith(1, { end_at: '2026-11-26T11:00:42.123456Z' });
+});
+
+test.each(['2026-11-23T18:00', '2026-11-23T17:59'])('invalid end %s prevents save', async local => {
+  const form = await openEditor({ publication_status: 'draft' });
+  change(form.querySelector('#event-end-at'), local);
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.update).not.toHaveBeenCalled();
+  expect(container.textContent).toContain('Дата окончания должна быть позже начала');
+});
+
+test('changing only start validates against the saved end', async () => {
+  const form = await openEditor({ publication_status: 'draft', end_at: '2026-11-24T11:00:00Z' });
+  change(form.querySelector('[aria-label="Дата и время Новосибирска"]'), '2026-11-25T18:00');
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.update).not.toHaveBeenCalled();
+  expect(container.textContent).toContain('Дата окончания должна быть позже начала');
+});
+
+test.each([['2026-11-23T20:00', '2026-11-23T13:00:00Z'], ['2026-11-26T18:00', '2026-11-26T11:00:00Z'], ['', null]])('creates an optional end %s in UTC', async (local, expected) => {
+  await render();
+  await click(button('Добавить мероприятие'));
+  const form = container.querySelector('form');
+  change(form.querySelector('input[type="text"]'), 'Created');
+  change(form.querySelectorAll('input[type="text"]')[1], 'NSK');
+  change(form.querySelector('[aria-label="Дата и время Новосибирска"]'), '2026-11-23T18:00');
+  change(form.querySelector('#event-end-at'), local);
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.create).toHaveBeenCalledWith(expect.objectContaining({
+    datetime: '2026-11-23T11:00:00Z',
+    end_at: expected,
+  }));
 });

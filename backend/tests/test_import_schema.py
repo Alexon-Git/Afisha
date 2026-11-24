@@ -62,10 +62,14 @@ def import_database(request, tmp_path_factory):
         upgrade(url, 'head')
         with engine.connect() as c:
             assert set(inspect(c).get_table_names()) == tables | NEW | {'alembic_version'}
-            assert c.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0006_import_worker_integrity'
+            assert c.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0007_event_end_at'
             for t in tables:
-                assert c.execute(text(f'SELECT * FROM {t}')).mappings().all() == before[t]
-                assert repr((inspect(c).get_columns(t), inspect(c).get_indexes(t), inspect(c).get_foreign_keys(t))) == structure[t]
+                rows = c.execute(text(f'SELECT * FROM {t}')).mappings().all()
+                if t == 'events':
+                    assert all(row['end_at'] is None for row in rows)
+                    rows = [{k: v for k, v in row.items() if k != 'end_at'} for row in rows]
+                assert rows == before[t]
+                assert repr(([col for col in inspect(c).get_columns(t) if not (t == "events" and col["name"] == "end_at")], inspect(c).get_indexes(t), inspect(c).get_foreign_keys(t))) == structure[t]
             assert compare_metadata(MigrationContext.configure(c, opts={'compare_type': True, 'compare_server_default': True}), Base.metadata) == []
             for t in NEW:
                 assert c.execute(text(f'SELECT count(*) FROM {t}')).scalar() == 0
