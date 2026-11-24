@@ -327,3 +327,41 @@ def test_shutdown_during_http_starts_no_next_request(complete_api):
         run=db.get(ImportRun,task[0])
         assert run.status=='interrupted' and run.lease_token is None
         assert run.records_seen==0 and db.query(EventCandidate).count()==3
+
+
+@pytest.mark.parametrize('with_end', [False, True])
+def test_promote_preserves_end_and_manual_edits(complete_api, with_end):
+    client, sessions, _ = complete_api
+    with sessions.begin() as db:
+        c = db.get(EventCandidate, 101)
+        c.end_at = c.start_at + timedelta(days=2) if with_end else None
+        expected = c.end_at
+        c.source_item_key = extract(BODY, 'application/ld+json', URL)[0]['source_item_key']
+    approve(client)
+    result = client.post(BASE+'/101/promote', json={'expected_revision':1})
+    assert result.status_code == 200, result.text
+    eid = result.json()['linked_event_id']
+    with sessions() as db:
+        assert db.get(Event, eid).end_at == expected
+    manual = '2026-12-01T18:00:00+07:00'
+    assert client.put(f'/events/{eid}', json={'end_at':manual}).status_code == 200
+    repeated = client.post(BASE+'/101/promote', json={'expected_revision':1})
+    assert repeated.status_code == 200 and repeated.json()['linked_event_id'] == eid
+    with sessions.begin() as db:
+        c = db.get(EventCandidate, 101)
+        observation = extract(json.dumps({**FACTS, 'endDate':'2026-11-29T18:00:00+07:00'}).encode(), 'application/ld+json', URL)[0]
+        assert store_record(db, db.get(ImportRun, c.last_run_id), observation, URL) == 'updated'
+        assert db.get(Event,eid).end_at == datetime(2026,12,1,11,tzinfo=timezone.utc)
+        assert db.query(Event).count() == 2
+
+
+def test_promote_invalid_end_rolls_back(complete_api):
+    client, sessions, _ = complete_api
+    with sessions.begin() as db:
+        c = db.get(EventCandidate,101)
+        c.end_at = c.start_at  # Candidate schema permits equality; Event must reject it.
+    approve(client)
+    assert client.post(BASE+'/101/promote',json={'expected_revision':1}).status_code == 422
+    with sessions() as db:
+        assert db.query(Event).count() == 1
+        assert db.get(EventCandidate,101).linked_event_id is None

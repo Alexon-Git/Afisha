@@ -66,6 +66,7 @@ export interface Event {
   title: string;
   description?: string;
   datetime: string;
+  end_at?: string | null;
   location: string;
   image_url?: string | null;
   category_id?: number | null;
@@ -103,6 +104,7 @@ export interface EventCreate {
   title: string;
   description?: string;
   datetime: string;
+  end_at?: string | null;
   location: string;
   image_url?: string | null;
   category_id?: number | null;
@@ -119,6 +121,7 @@ export interface EventUpdate {
   title?: string;
   description?: string;
   datetime?: string;
+  end_at?: string | null;
   location?: string;
   image_url?: string | null;
   category_id?: number | null;

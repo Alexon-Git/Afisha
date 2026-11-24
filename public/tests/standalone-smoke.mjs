@@ -135,6 +135,20 @@ try {
       if (price === null) assert.doesNotMatch(rendered, /Бесплатно/);
     }
   }
+  for (const [end, label] of [[null, '26 ноября 2026 г. · 10:00'],
+    ['2026-11-26T11:00:00Z', '26 ноября 2026 г. · 10:00–18:00'],
+    ['2026-11-28T11:00:00Z', '26 ноября 2026 г., 10:00 — 28 ноября 2026 г., 18:00']]) {
+    events = [{ ...fixture, datetime: '2026-11-26T03:00:00Z', end_at: end }];
+    for (const path of ['/', '/events', '/events/1']) {
+      const rendered = await html(base, path);
+      assert.ok(rendered.includes(label), `${path}: ${label}`);
+      if (path === '/events/1') {
+        const json = rendered.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+        assert.ok(json);
+        assert.equal(JSON.parse(json[1]).endDate, end ? new Date(end).toISOString() : undefined);
+      }
+    }
+  }
   events = originalEvents;
   for (const id of ['4', '5', '99999', 'abc', '2147483648']) await html(base, `/events/${id}`, 404);
   for (const [id, message] of [[2, 'отменено'], [3, 'перенесено']]) {

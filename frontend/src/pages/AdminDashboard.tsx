@@ -50,6 +50,7 @@ const AdminDashboard: React.FC = () => {
     title: '',
     description: '',
     datetime: '',
+    end_at: '',
     location: '',
     image_url: '',
     category_id: null,
@@ -156,6 +157,7 @@ const AdminDashboard: React.FC = () => {
       title: event.title,
       description: event.description || '',
       datetime: instantToEventInput(event.datetime),
+      end_at: event.end_at ? instantToEventInput(event.end_at) : '',
       location: event.location,
       image_url: event.image_url || '',
       category_id: event.category_id ?? event.category?.id ?? null,
@@ -234,7 +236,7 @@ const AdminDashboard: React.FC = () => {
       const normalizeNumber = (value: number | null | undefined) =>
         value !== null && value !== undefined && !Number.isNaN(value) ? value : null;
 
-      const normalizeFields = (data: EventCreate): Omit<EventCreate, 'datetime'> => {
+      const normalizeFields = (data: EventCreate): Omit<EventCreate, 'datetime' | 'end_at'> => {
         const normalizedPrice = normalizeNumber(data.price);
         const normalizedRating = normalizeNumber(data.rating);
         const normalizedDiscount = normalizeNumber(data.discount);
@@ -261,6 +263,16 @@ const AdminDashboard: React.FC = () => {
         };
       };
 
+      // Convert using the same Novosibirsk helpers; keep original microseconds.
+      const start = editingEvent && formData.datetime === originalFormData?.datetime
+        ? editingEvent.datetime : eventInputToInstant(formData.datetime, editingEvent?.datetime);
+      const end = !formData.end_at ? null
+        : editingEvent?.end_at && formData.end_at === originalFormData?.end_at ? editingEvent.end_at
+        : eventInputToInstant(formData.end_at, editingEvent?.end_at || undefined);
+      const comparable = (instant: string) => instant.replace(/(?:\.(\d+))?Z$/, (_, fraction = '') => `.${fraction.padEnd(6, '0')}Z`);
+      if (end !== null && comparable(end) <= comparable(start)) {
+        throw new Error('Дата окончания должна быть позже начала');
+      }
       const fields = normalizeFields(formData);
       if (editingEvent && originalFormData) {
         const original = normalizeFields(originalFormData);
@@ -276,6 +288,12 @@ const AdminDashboard: React.FC = () => {
             payload.datetime = instant;
           }
         }
+        if ((formData.end_at || '') !== (originalFormData.end_at || '')) {
+          if (end === null || !editingEvent.end_at ||
+              instantToEventInput(end) !== instantToEventInput(editingEvent.end_at)) {
+            payload.end_at = end;
+          }
+        }
         if (Object.keys(payload).length === 0) {
           setShowModal(false);
           return;
@@ -285,7 +303,8 @@ const AdminDashboard: React.FC = () => {
       } else {
         const payload: EventCreate = {
           ...fields,
-          datetime: eventInputToInstant(formData.datetime),
+          datetime: start,
+          end_at: end,
         };
         await eventsApi.create(payload);
         toast.success('Мероприятие создано');
@@ -699,6 +718,17 @@ const AdminDashboard: React.FC = () => {
                       onChange={(e) => setFormData(prev => ({ ...prev, datetime: e.target.value }))}
                       className="input-field"
                     />
+                  </div>
+
+                  <div>
+                    <label htmlFor="event-end-at" className="block text-sm font-medium text-gray-700 mb-2">
+                      Дата и время окончания (Asia/Novosibirsk)
+                    </label>
+                    <input id="event-end-at" type="datetime-local" step="any"
+                      aria-label="Дата и время окончания Новосибирска"
+                      value={formData.end_at || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, end_at: e.target.value }))}
+                      className="input-field" />
                   </div>
 
                   <div>

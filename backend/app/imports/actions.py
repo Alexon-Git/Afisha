@@ -90,7 +90,7 @@ def transfer(db,cid,change,actor_id,kind):
                 price=0
             elif c.price_kind=='fixed' and c.currency=='RUB' and c.price_amount is not None and c.price_amount==int(c.price_amount) and c.price_amount<=2147483647:
                 price=int(c.price_amount)
-            payload=EventCreate(title=c.title,description=c.neutral_description,datetime=c.start_at,
+            payload=EventCreate(title=c.title,description=c.neutral_description,datetime=c.start_at,end_at=c.end_at,
                 location=location,organizer_id=organizer,event_url=c.official_event_url,
                 source=safe_url(c.source_url),price=price)
             target=Event(**payload.model_dump(),creator_id=actor_id,publication_status='draft',

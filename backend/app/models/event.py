@@ -13,6 +13,7 @@ class Event(Base):
     title = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
     datetime = Column(UTCDateTime(), nullable=False, index=True)
+    end_at = Column(UTCDateTime(), nullable=True)
     location = Column(String, nullable=False)
     image_url = Column(String, nullable=True)
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True)

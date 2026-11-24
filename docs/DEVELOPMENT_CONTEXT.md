@@ -1,5 +1,39 @@
 # Контекст разработки Afisha — технический снимок
 
+## PR-16A — окончание и многодневные события (2026-11-25, до review/merge)
+
+- Ветка `feature/pr16a-event-end-date`, база origin/master `af18eb3`, PR #33 merged.
+- Nullable Event.end_at через UTCDateTime/EventInstant PR-8; аддитивная 0007 после
+  0006, старые значения NULL, начало/старые строки не меняются. Диапазон UTC
+  1900–2100 и обязательный offset сохранены. Период строго end > start; 422 до
+  записи, итоговая пара при partial PUT проверяется под существующей блокировкой.
+- end_at — критичная правка: published требует draft → edit → verify → publish;
+  отсутствие поля сохраняет окончание, явный null очищает. Promote переносит
+  окончание из Candidate; повторный promote/новое наблюдение не трогают ручной Event.
+- Фильтры считают пересечение [start,end) с днями Новосибирска; NULL end остаётся
+  точечным. COUNT/пагинация/сортировка/видимость сохранены; главная через тот же API
+  показывает продолжающиеся события. Новый индекс без измерений не добавлялся.
+- Admin использует прежние Novosibirsk-конвертеры и partial PUT, не преобразует
+  неизменённые instants, сохраняет микросекунды, позволяет очистить окончание.
+  Next показывает общий период на главной/каталоге/detail; JSON-LD endDate только
+  при известном окончании. Цена PR-15/CSS/зависимости/инфраструктура не меняются.
+- Полный backend на отдельном venv из текущих requirements: 742 passed, 6 skipped;
+  SQLite + отдельный PG17 с tmpfs, synthetic populated 0006 → head, чистая цепочка,
+  metadata, HTTP/workflow и четыре process/session TZ. Старый общий venv не менялся.
+  Первый прогон выявил старый head в тесте и устаревший общий venv; исправлено.
+- Admin: полный suite 90 passed в каждой из четырёх TZ; после уточнения обработки
+  неизменённых instants целевые 49 passed во всех TZ, повторный build успешен.
+  Public: typecheck/build/standalone SSR smoke успешны, 22 unit/API/domain tests
+  passed в UTC, Asia/Novosibirsk, Europe/Moscow, America/Los_Angeles.
+  Compileall/diff-check успешны; CI на опубликованном SHA — в итоговом PR/отчёте.
+- Мобильная визуальная/browser QA не выполнялась; сетка/CSS сохранены, длинные
+  периоды проверены SSR, визуальную проверку выполнить отдельно. Рабочий локальный
+  QA-stack не мигрировался и не пересобирался; afisha_content_pg17/24 QA-события,
+  production/VPS/stash/чужие worktree не затрагивались. Ранее потерянные окончания
+  автоматически не восстанавливаются. Ограничения миграции: backend/MIGRATIONS.md.
+- Следующее действие: независимое review PR-16A. Merge/deploy не выполнять.
+
+
 ## PR-15 — отображение стоимости (2026-11-24, до review/merge)
 
 - Ветка `fix/pr15-free-event-price`, база origin/master `3c5a1ad` (PR #32).
