@@ -1,6 +1,6 @@
 # Передача контекста следующему агенту — Afisha
 
-## PR-17 — SEO-блог (2026-11-25, ветка `feature/pr17-seo-blog`, PR не создан: `gh` не авторизован)
+## PR-17 — SEO-блог (2026-11-25, ветка `feature/pr17-seo-blog`, PR на review)
 
 - Backend: модель `Article` (`articles`, миграция `0009_articles` от `0008_event_pricing`), сервис `ArticleService`, публичные `GET /articles/`, `/articles/categories`, `/articles/{slug}` (только published, иначе 404), админские `/admin/articles/` (GET/POST/PUT, `publish`, `unpublish`, `archive`, `upload-cover`) под JWT.
 - Статус, `published_at`, id и даты клиентом не задаются (`extra=forbid`). `published_at` ставится при первой публикации и не меняется. Slug: автогенерация из русского заголовка (транслит), уникален (409), у опубликованной статьи неизменяем (409). Публикация требует текст >= 200 символов, excerpt и seo_description (422 с полями).
@@ -9,7 +9,9 @@
 - Public: `/blog` (SSR, `?page=`, `?category=`, индексируется только первая страница без фильтра), `/blog/[slug]` (настоящий 404), безопасный Markdown (`domain/markdown.ts`, свой парсер без зависимостей: H2–H4, абзацы, жирный/курсив, списки, цитаты, ссылки только http(s) и `/…`; HTML выводится как текст, H1 в тексте понижается до H2), Article JSON-LD без выдуманных author/image/publisher, sitemap с `/blog` и опубликованными статьями (при сбое API 503). Слот `blog_feed` после первых трёх карточек; в production скрыт без `AD_ENABLED` и валидного ID.
 - Даты в блоге показываются в Asia/Novosibirsk.
 - Проверено: backend `pytest` 640 passed, 171 skipped (PostgreSQL), 1 failed (`test_multipart_parsing`, падает и на PR-16B, не связан); `test_articles.py` 11/11; admin unit 107/107 и production build; public typecheck, unit 41/41, build, standalone SSR smoke PASS.
-- НЕ проверено: PostgreSQL 17 (Docker не запущен, 171 тест пропущен, в т. ч. миграция 0009 на PG), gateway smoke, browser QA и скриншоты, GitHub Actions. Миграция проверена только на SQLite.
+- PostgreSQL 17 (одноразовый контейнер `afisha_pr17_pg`, loopback, остановлен): весь backend `pytest` 796 passed, 26 skipped, 1 failed (`test_multipart_parsing`, тот же сбой на PR-16B). Миграция 0009 проверена вручную на PG17: upgrade с заполненной 0008 (событие сохранилось), индексы, UNIQUE slug, CHECK статуса, downgrade и повторный upgrade.
+- Gateway smoke PASS с `GATEWAY_TEST_NET_PREFIX=172.30.201` (по умолчанию 172.30.123.0/29 занята); чужие контейнеры `afisha-content_*` и `afisha_preview_*` до и после не изменились.
+- НЕ проверено: browser QA и скриншоты, GitHub Actions (см. PR).
 - Ограничения: нет редиректов при смене slug (поэтому slug заблокирован); Markdown без таблиц, картинок и вложенных списков; нет выбора категории из списка (свободный slug-текст); нет пагинации списка в админке (первые 20).
 - Downgrade `0009` удаляет все статьи; сначала бэкап.
 
