@@ -1,0 +1,144 @@
+# Isolated staging stack. Never loaded implicitly: always pass
+#   --env-file deploy/staging/.env.staging -f deploy/staging/docker-compose.staging.yml
+# Images are pre-built from a fixed commit (scripts/build-images.sh); no build here.
+# Never run `down -v`, `system prune` or `volume prune` against this project.
+name: ${COMPOSE_PROJECT_NAME:-afisha-staging}
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+x-hardening: &hardening
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  init: true
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql://afisha:${POSTGRES_PASSWORD:?}@db:5432/afisha_staging
+  SECRET_KEY: ${SECRET_KEY:?}
+  ADMIN_USERNAME: ${ADMIN_USERNAME:-staging-admin}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:?}
+  ADMIN_EMAIL: ${ADMIN_EMAIL:-staging-admin@example.invalid}
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+  LOGIN_ACCOUNT_LIMIT: ${LOGIN_ACCOUNT_LIMIT:-5}
+  LOGIN_SOURCE_LIMIT: ${LOGIN_SOURCE_LIMIT:-30}
+  LOGIN_WINDOW_SECONDS: ${LOGIN_WINDOW_SECONDS:-900}
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: afisha
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: afisha_staging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U afisha -d afisha_staging"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes: [db_data:/var/lib/postgresql/data]
+    networks: [internal]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 384m
+    cpus: 1.0
+    pids_limit: 200
+    logging: *logging
+
+  # One-shot: applies Alembic to this stack's own database up to the image's head.
+  migrate:
+    image: ${BACKEND_IMAGE:?}
+    restart: "no"
+    command: ["sh", "-ec", "alembic upgrade head && python create_admin.py"]
+    environment: *backend-env
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+    read_only: true
+    tmpfs: ["/tmp:size=32m,mode=1777"]
+    <<: *hardening
+    mem_limit: 256m
+    logging: *logging
+
+  backend:
+    image: ${BACKEND_IMAGE:?}
+    restart: unless-stopped
+    # Trust forwarded headers only from the exact Nginx address (never a subnet or `*`).
+    command:
+      - sh
+      - -ec
+      - >-
+        python -c 'import ipaddress, os; ipaddress.IPv4Address(os.environ["TRUSTED_NGINX_IP"])' &&
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8039
+        --proxy-headers --forwarded-allow-ips="$$TRUSTED_NGINX_IP"
+    environment:
+      <<: *backend-env
+      TRUSTED_NGINX_IP: ${STAGING_NGINX_IP:?}
+    volumes: [uploads:/app/app/static/uploads]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    networks: [internal]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    <<: *hardening
+    pids_limit: 256
+    mem_limit: 384m
+    cpus: 1.0
+    stop_grace_period: 20s
+    logging: *logging
+
+  public:
+    image: ${PUBLIC_IMAGE:?}
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_URL: http://backend:8039
+      SITE_URL: ""            # empty => noindex, robots Disallow, sitemap 503
+      AD_ENABLED: "false"     # Yandex RSYA off; no block IDs are configured
+    depends_on:
+      backend: { condition: service_healthy }
+    networks: [internal]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    <<: *hardening
+    pids_limit: 256
+    mem_limit: 384m
+    cpus: 1.0
+    logging: *logging
+
+  nginx:
+    image: ${NGINX_IMAGE:?}
+    restart: unless-stopped
+    ports:
+      - "${STAGING_BIND:-127.0.0.1}:${STAGING_PORT:-18080}:8080"
+    volumes:
+      - uploads:/srv/uploads:ro
+      - ${STAGING_HTPASSWD:?}:/etc/nginx/secrets/staging.htpasswd:ro
+    healthcheck:   # health is behind the gate; a Bearer-shaped header passes it, backend ignores it
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "--header=Authorization: Bearer healthcheck", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    depends_on:
+      backend: { condition: service_healthy }
+      public: { condition: service_healthy }
+    networks:
+      internal: { ipv4_address: "${STAGING_NGINX_IP:?}" }
+      edge: {}
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    <<: *hardening
+    pids_limit: 128
+    mem_limit: 96m
+    cpus: 0.5
+    logging: *logging
+
+networks:
+  internal:       # no outbound access; holds db, backend, public, nginx
+    internal: true
+    ipam:
+      config: [{ subnet: "${STAGING_INTERNAL_SUBNET:?}" }]
+  edge:           # only nginx; carries the (loopback by default) published port
+    {}
+
+volumes:
+  db_data: {}
+  uploads: {}
