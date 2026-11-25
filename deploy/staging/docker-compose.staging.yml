@@ -135,7 +135,8 @@ networks:
   internal:       # no outbound access; holds db, backend, public, nginx
     internal: true
     ipam:
-      config: [{ subnet: "${STAGING_INTERNAL_SUBNET:?}" }]
+      # Dynamic addresses come from ip_range so the fixed Nginx address (trusted proxy) is never taken.
+      config: [{ subnet: "${STAGING_INTERNAL_SUBNET:?}", ip_range: "${STAGING_DYNAMIC_RANGE:?}" }]
   edge:           # only nginx; carries the (loopback by default) published port
     {}
 
