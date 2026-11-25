@@ -75,7 +75,7 @@ def test_empty_migration_and_http_contract(time_database, tmp_path, monkeypatch)
     upgrade(url, 'head')
     upgrade(url, 'head')
     with engine.connect() as connection:
-        assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0008_event_pricing'
+        assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0009_articles'
         assert connection.execute(text('SELECT count(*) FROM users')).scalar() == 1
         assert connection.execute(text('SELECT count(*) FROM categories')).scalar() == 1
         assert next(c for c in inspect(connection).get_columns('events') if c['name'] == 'datetime')['type'].timezone == (engine.dialect.name == 'postgresql')

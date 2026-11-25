@@ -1,4 +1,4 @@
-import { getPublishedEvents } from '../../api/server';
+import { getPublishedArticles, getPublishedEvents } from '../../api/server';
 import { siteOrigin } from '../../domain/safety';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,7 @@ export async function GET() {
   const origin = siteOrigin();
   if (!origin) return new Response('<error>SITE_URL required</error>', { status: 503, headers });
   try {
-    const urls = new Set([`${origin}/`, `${origin}/events`]);
+    const urls = new Set([`${origin}/`, `${origin}/events`, `${origin}/blog`]);
     let totalPages = 1;
     for (let page = 1; page <= totalPages; page++) {
       const result = await getPublishedEvents(page, 100);
@@ -19,6 +19,13 @@ export async function GET() {
       for (const event of result.items) {
         if (event.publication_status === 'published' && Number.isSafeInteger(event.id) && event.id > 0) urls.add(`${origin}/events/${event.id}`);
       }
+    }
+    let articlePages = 1;
+    for (let page = 1; page <= articlePages; page++) {
+      const result = await getPublishedArticles(page, 50);
+      if (!Number.isInteger(result.total_pages) || result.total_pages < 0 || result.total_pages > 499 || result.page !== page) throw new Error();
+      articlePages = result.total_pages;
+      for (const article of result.items) if (/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(article.slug)) urls.add(`${origin}/blog/${article.slug}`);
     }
     const xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
       [...urls].map(url => `<url><loc>${escapeXml(url)}</loc></url>`).join('') + '</urlset>';

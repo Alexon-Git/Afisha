@@ -19,7 +19,7 @@ from app.database import Base
 from app.models import CandidateMatch, EventCandidate, ImportRun, ImportSource
 from test_event_metadata_migration import upgrade
 
-NEW = {'import_sources', 'import_runs', 'event_candidates', 'import_candidate_matches'}
+NEW = {'import_sources', 'import_runs', 'event_candidates', 'import_candidate_matches', 'articles'}
 
 
 @pytest.fixture(scope='module', params=['sqlite', 'postgresql'])
@@ -62,7 +62,7 @@ def import_database(request, tmp_path_factory):
         upgrade(url, 'head')
         with engine.connect() as c:
             assert set(inspect(c).get_table_names()) == tables | NEW | {'alembic_version'}
-            assert c.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0008_event_pricing'
+            assert c.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0009_articles'
             for t in tables:
                 rows = c.execute(text(f'SELECT * FROM {t}')).mappings().all()
                 if t == 'events':

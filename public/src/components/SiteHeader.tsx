@@ -1,5 +1,5 @@
 /** Static navigation: the header must not call the API, so invalid links never reach the backend. */
-const links: [string, string][] = [['/events', 'Все события'], ['/events?date=today', 'Сегодня'], ['/events?date=tomorrow', 'Завтра'], ['/events?date=weekend', 'Выходные']];
+const links: [string, string][] = [['/events', 'Все события'], ['/events?date=today', 'Сегодня'], ['/events?date=tomorrow', 'Завтра'], ['/events?date=weekend', 'Выходные'], ['/blog', 'Блог']];
 
 export function SiteHeader() {
   return <header className="site-header">

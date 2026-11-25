@@ -1,6 +1,6 @@
 import 'server-only';
 import { readJson, ApiUnavailableError } from './http.ts';
-import type { Health, PaginatedEvents, Event, Category } from './types.ts';
+import type { Health, PaginatedEvents, Event, Category, Article, PaginatedArticles } from './types.ts';
 import type { CatalogQuery } from '../domain/catalog.ts';
 
 function internalBase(): string {
@@ -31,4 +31,15 @@ export function getPublishedEvent(id: number): Promise<Event> {
 
 export function getCategories(): Promise<Category[]> {
   return readJson<Category[]>(`${internalBase()}/categories/`);
+}
+
+export function getPublishedArticles(page = 1, limit = 12, category?: string): Promise<PaginatedArticles> {
+  const query = new URLSearchParams({ page: String(page), limit: String(limit), ...(category ? { category } : {}) });
+  return readJson<PaginatedArticles>(`${internalBase()}/articles/?${query}`);
+}
+export function getArticleCategories(): Promise<string[]> {
+  return readJson<string[]>(`${internalBase()}/articles/categories`);
+}
+export function getPublishedArticle(slug: string): Promise<Article> {
+  return readJson<Article>(`${internalBase()}/articles/${encodeURIComponent(slug)}`);
 }

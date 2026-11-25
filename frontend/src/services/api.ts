@@ -281,3 +281,33 @@ export const importApi = {
   edit: (c: ImportCandidate, data: {start_at: string; city: string; venue_name: string; review_note: string}) => api.patch<ImportCandidate>(`/admin/import/candidates/${c.id}`, {expected_revision:c.revision,...data}),
   recheck: (c: ImportCandidate, key: string) => api.post<ImportRun>(`/admin/import/candidates/${c.id}/recheck`, {}, {headers:{'Idempotency-Key':key}}),
 };
+
+export type ArticleStatus = 'draft' | 'published' | 'archived';
+export interface Article {
+  id: number; title: string; slug: string; excerpt: string | null; content: string | null;
+  cover_image_url: string | null; category: string | null; seo_title: string | null;
+  seo_description: string | null; author_name: string | null; publication_status: ArticleStatus;
+  published_at: string | null; created_at: string; updated_at: string;
+}
+export type ArticleInput = Partial<Omit<Article, 'id' | 'publication_status' | 'published_at' | 'created_at' | 'updated_at'>>;
+export const articlesApi = {
+  list: (page = 1) => api.get<{items: Article[]; total_pages: number}>('/admin/articles/', {params: {page, limit: 20}}),
+  get: (id: number) => api.get<Article>(`/admin/articles/${id}`),
+  create: (data: ArticleInput) => api.post<Article>('/admin/articles/', data),
+  update: (id: number, data: ArticleInput) => api.put<Article>(`/admin/articles/${id}`, data),
+  publish: (id: number) => api.post<Article>(`/admin/articles/${id}/publish`),
+  unpublish: (id: number) => api.post<Article>(`/admin/articles/${id}/unpublish`),
+  archive: (id: number) => api.post<Article>(`/admin/articles/${id}/archive`),
+  uploadCover: (file: File) => {
+    const form = new FormData(); form.append('file', file);
+    return api.post<{image_url: string}>('/admin/articles/upload-cover', form);
+  },
+};
+
+/** Readable text of a FastAPI error: field messages from 422, plain detail otherwise. */
+export const articleErrorMessage = (error: any): string => {
+  const detail = error?.response?.data?.detail;
+  if (detail?.fields) return Object.entries(detail.fields).map(([k, v]) => `${k}: ${v}`).join('; ');
+  if (Array.isArray(detail)) return detail.map((d: any) => `${(d.loc || []).slice(1).join('.')}: ${d.msg}`).join('; ');
+  return typeof detail === 'string' ? detail : 'Ошибка запроса';
+};

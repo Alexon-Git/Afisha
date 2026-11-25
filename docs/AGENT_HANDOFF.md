@@ -1,5 +1,18 @@
 # Передача контекста следующему агенту — Afisha
 
+## PR-17 — SEO-блог (2026-11-25, ветка `feature/pr17-seo-blog`, PR не создан: `gh` не авторизован)
+
+- Backend: модель `Article` (`articles`, миграция `0009_articles` от `0008_event_pricing`), сервис `ArticleService`, публичные `GET /articles/`, `/articles/categories`, `/articles/{slug}` (только published, иначе 404), админские `/admin/articles/` (GET/POST/PUT, `publish`, `unpublish`, `archive`, `upload-cover`) под JWT.
+- Статус, `published_at`, id и даты клиентом не задаются (`extra=forbid`). `published_at` ставится при первой публикации и не меняется. Slug: автогенерация из русского заголовка (транслит), уникален (409), у опубликованной статьи неизменяем (409). Публикация требует текст >= 200 символов, excerpt и seo_description (422 с полями).
+- Обложка: тот же загрузчик картинок, что у событий (`EventService.save_image`), второго загрузчика нет. Город не добавлен; будущий `city_id` добавляется nullable-колонкой.
+- Админка: маршрут `/admin/articles`, ссылка «Статьи» на дашборде, список/редактор/публикация/архив, предпросмотр упрощённый (текст по абзацам). Редизайна нет.
+- Public: `/blog` (SSR, `?page=`, `?category=`, индексируется только первая страница без фильтра), `/blog/[slug]` (настоящий 404), безопасный Markdown (`domain/markdown.ts`, свой парсер без зависимостей: H2–H4, абзацы, жирный/курсив, списки, цитаты, ссылки только http(s) и `/…`; HTML выводится как текст, H1 в тексте понижается до H2), Article JSON-LD без выдуманных author/image/publisher, sitemap с `/blog` и опубликованными статьями (при сбое API 503). Слот `blog_feed` после первых трёх карточек; в production скрыт без `AD_ENABLED` и валидного ID.
+- Даты в блоге показываются в Asia/Novosibirsk.
+- Проверено: backend `pytest` 640 passed, 171 skipped (PostgreSQL), 1 failed (`test_multipart_parsing`, падает и на PR-16B, не связан); `test_articles.py` 11/11; admin unit 107/107 и production build; public typecheck, unit 41/41, build, standalone SSR smoke PASS.
+- НЕ проверено: PostgreSQL 17 (Docker не запущен, 171 тест пропущен, в т. ч. миграция 0009 на PG), gateway smoke, browser QA и скриншоты, GitHub Actions. Миграция проверена только на SQLite.
+- Ограничения: нет редиректов при смене slug (поэтому slug заблокирован); Markdown без таблиц, картинок и вложенных списков; нет выбора категории из списка (свободный slug-текст); нет пагинации списка в админке (первые 20).
+- Downgrade `0009` удаляет все статьи; сначала бэкап.
+
 ## PR-Design — публичный редизайн (2026-11-25, PR на review, визуально принят владельцем как MVP)
 
 - Ветка `feature/public-design-refresh` от master `577d8dd` (PR-16B уже внутри). Меняется только `public/`; backend, админка, БД, импорт не тронуты.

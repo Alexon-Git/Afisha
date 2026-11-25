@@ -41,3 +41,17 @@ class CategoryNotFoundError(CategoryError):
 
 class CategoryAlreadyExistsError(CategoryError):
     """Raised when creating or renaming a category conflicts with an existing one."""
+
+
+class ArticleNotFoundError(ServiceError):
+    """Raised when an article does not exist or is not public."""
+
+
+class ArticleConflictError(ServiceError):
+    """Raised on duplicate or immutable slug."""
+
+
+class ArticleValidationError(ServiceError):
+    def __init__(self, fields):
+        self.fields = fields
+        super().__init__("Article does not meet publication requirements")
