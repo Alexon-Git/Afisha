@@ -8,7 +8,7 @@ platform=()
 sha=$(git rev-parse --verify "$ref^{commit}")
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 git archive "$sha" | tar -x -C "$tmp"
-b() { docker build "${platform[@]}" "$@"; }
+b() { docker build ${platform[@]+"${platform[@]}"} "$@"; }
 b -t "afisha-staging/backend:$sha" "$tmp/backend"
 b --build-arg NEXT_PUBLIC_API_BASE=/api -t "afisha-staging/public:$sha" "$tmp/public"
 b -f "$tmp/deploy/nginx/Dockerfile" -t "afisha-staging/nginx-base:$sha" "$tmp"
