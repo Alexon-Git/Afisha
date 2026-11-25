@@ -35,6 +35,9 @@ def test_empty_draft_and_invalid_input(event_api):
     assert make(event_api, slug="Bad Slug").status_code == 422
     assert make(event_api, slug="x" * 121).status_code == 422
     assert make(event_api, cover_image_url="javascript:alert(1)").status_code == 422
+    for bad in ["https://example.com/a.jpg", "http://x/a.jpg", "/static/uploads/../x.jpg", "/static/uploads/abc.jpg", "//evil.com/a.png"]:
+        assert make(event_api, cover_image_url=bad).status_code == 422, bad
+    assert make(event_api, slug="cover-ok", cover_image_url="/static/uploads/" + "a" * 32 + ".webp").status_code == 201
     assert make(event_api, title="x" * 201).status_code == 422
 
 
@@ -112,3 +115,16 @@ def test_events_api_unaffected(event_api):
 def test_slugify_russian():
     assert slugify("Деловой завтрак: 5 советов!") == "delovoi-zavtrak-5-sovetov"
     assert slugify("!!!") == ""
+
+
+def test_slug_stays_locked_after_unpublish_and_archive(event_api):
+    aid = make(event_api, slug="first").json()["id"]
+    assert event_api.post(f"/admin/articles/{aid}/publish").status_code == 200
+    assert event_api.post(f"/admin/articles/{aid}/unpublish").status_code == 200
+    assert event_api.put(f"/admin/articles/{aid}", json={"slug": "second"}).status_code == 409
+    assert event_api.put(f"/admin/articles/{aid}", json={"slug": "first", "excerpt": "ok"}).status_code == 200
+    assert event_api.post(f"/admin/articles/{aid}/archive").status_code == 200
+    assert event_api.put(f"/admin/articles/{aid}", json={"slug": "third"}).status_code == 409
+    # a never-published draft can still be renamed
+    did = make(event_api, slug="draft-a").json()["id"]
+    assert event_api.put(f"/admin/articles/{did}", json={"slug": "draft-b"}).status_code == 200

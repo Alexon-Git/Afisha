@@ -8,7 +8,7 @@ from ..utils.event_time import EventInstant
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 CATEGORY_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-COVER_RE = re.compile(r"^(/static/uploads/[0-9a-f]{32}\.(?:jpg|png|webp)|https://[^\s<>\"']+)$")
+COVER_RE = re.compile(r"^(/static/uploads/[0-9a-f]{32}\.(?:jpg|png|webp))$")
 
 
 def _blank_to_none(value):
@@ -61,7 +61,7 @@ class ArticleFields(BaseModel):
     @classmethod
     def valid_cover(cls, value):
         if value is not None and not COVER_RE.fullmatch(value):
-            raise ValueError("Обложка: загруженный файл или https-ссылка")
+            raise ValueError("Обложка: только загруженный файл (/static/uploads/…)")
         return value
 
 

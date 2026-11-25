@@ -67,8 +67,8 @@ class ArticleService:
             raise ArticleValidationError({"title": "Заголовок обязателен"})
         if patch.get("slug") is None and "slug" in patch:
             patch.pop("slug")
-        if "slug" in patch and patch["slug"] != item.slug and item.publication_status == PublicationStatus.PUBLISHED:
-            raise ArticleConflictError("Slug опубликованной статьи изменить нельзя")
+        if "slug" in patch and patch["slug"] != item.slug and item.published_at is not None:
+            raise ArticleConflictError("Slug статьи, которая уже публиковалась, изменить нельзя")
         for key, value in patch.items():
             setattr(item, key, value)
         if item.publication_status == PublicationStatus.PUBLISHED:

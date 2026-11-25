@@ -48,3 +48,19 @@ test('publish and unpublish are explicit actions; published slug is locked', asy
   expect(field('Slug').disabled).toBe(true);
   expect(button('Снять с публикации')).toBeTruthy();
 });
+
+test('publish is blocked while the form has unsaved changes', async () => {
+  articlesApi.update.mockResolvedValue({ data: art });
+  articlesApi.publish.mockResolvedValue({ data: { ...art, publication_status: 'published' } });
+  await click(button('Редактировать'));
+  expect(button('Опубликовать').disabled).toBe(false);
+  act(() => Simulate.change(field('Заголовок'), { target: { value: 'Изменено' } }));
+  expect(button('Опубликовать').disabled).toBe(true);
+  expect(container.querySelector('[role=note]').textContent).toContain('несохранённые');
+  await click(button('Опубликовать'));
+  expect(articlesApi.publish).not.toHaveBeenCalled();
+  await act(async () => Simulate.submit(container.querySelector('form')));
+  expect(button('Опубликовать').disabled).toBe(false);
+  await click(button('Опубликовать'));
+  expect(articlesApi.publish).toHaveBeenCalledWith(1);
+});
