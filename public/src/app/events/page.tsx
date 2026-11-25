@@ -3,6 +3,7 @@ import { catalogLink, catalogQuery, type Search } from '../../domain/catalog';
 import { pageMetadata } from '../../domain/seo';
 import { EventGrid, ApiError, DateNote } from '../../components/Events';
 import { Filters } from '../../components/Filters';
+import { DateScroller } from '../../components/DateScroller';
 
 export const dynamic = 'force-dynamic';
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Search> }) {
@@ -16,8 +17,9 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
   try {
     const [result, categories] = await Promise.all([getPublishedEvents(page, 12, filters), getCategories()]);
     return <main id="main" className="shell main">
-      <div className="page-heading"><p className="eyebrow">Новосибирск · деловые события</p><h1>Найдите свою<br />следующую встречу.</h1></div>
+      <div className="page-heading"><p className="eyebrow">Новосибирск · деловые события</p><h1>Каталог мероприятий</h1></div>
       <nav className="quick-filters" aria-label="Быстрый выбор даты">{[['today', 'Сегодня'], ['tomorrow', 'Завтра'], ['weekend', 'Выходные']].map(([value, label]) => <a key={value} className={filters.date === value ? 'selected' : ''} href={catalogLink({ category: filters.category, date: value })}>{label}</a>)}</nav>
+      <section className="calendar-panel" aria-label="Календарь"><DateScroller filters={filters} /></section>
       <Filters filters={filters} categories={categories} />
       <div className="section-heading"><h2>Мероприятия</h2><p>Найдено {result.total_items}</p></div>
       <DateNote />

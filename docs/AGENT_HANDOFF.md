@@ -1,5 +1,19 @@
 # Передача контекста следующему агенту — Afisha
 
+## PR-Design — публичный редизайн (2026-11-25, PR на review, визуально принят владельцем как MVP)
+
+- Ветка `feature/public-design-refresh` от master `577d8dd` (PR-16B уже внутри). Меняется только `public/`; backend, админка, БД, импорт не тронуты.
+- Дизайн-система: `components/ui.tsx` (Container, SectionHeading, Button, CategoryBadge, EmptyState, ArticleCard), `SiteHeader`, `SiteFooter`. Токены и стили в `globals.css`: синий акцент, белые карточки, светлый фон, Inter.
+- Шапка статическая (без запросов к API): ссылки на каталог и today/tomorrow/weekend. Запрос категорий в шапке ломал smoke (лишние обращения к API).
+- `DateScroller` — серверный компонент, 30 дней по Asia/Novosibirsk. Клик выбирает день, клик по более позднему дню расширяет до диапазона. Состояние хранится в URL (`date_from`/`date_to`), фильтрует существующий API. На главной и в `/events`.
+- `AdSlot` + `domain/adSlots.ts`: слоты home_top/middle/bottom, отключены без `AD_ENABLED=true` и валидного ID `R-X-N-N`; preview только при `NEXT_PUBLIC_AD_PREVIEW=true` вне production. `blog_feed` — для PR-17.
+- `domain/calendar.ts` — чистая логика календаря (дни по Asia/Novosibirsk, выбор дня/диапазона, ссылки). Тесты `tests/calendar.test.ts`: день, диапазон, сброс, URL round-trip, границы месяца/года/29 февраля, часовой пояс.
+- `/events` и `/events/[id]`: бейдж категории, кнопка регистрации через `Button`, стили пагинации/фильтров/пустых состояний, мобильные правки. Разметка цены не менялась (smoke зависит от `<dt>Стоимость</dt><dd>`).
+- Gateway smoke: `deploy/tests/gateway_smoke.py` принимает `GATEWAY_TEST_NET_PREFIX` (по умолчанию 172.30.123). Чужие стеки не затрагивались; запуск с `172.30.201` — PASS, cleanup только своего проекта.
+- Проверено (master `577d8dd`, PR-16B внутри): typecheck, unit 37/37, build, standalone SSR smoke PASS, gateway smoke PASS (только с `GATEWAY_TEST_NET_PREFIX=172.30.201`), `git diff --check`. Локальный preview (next dev + мок-API, 3 слота рекламы) отдал 200 на `/`, `/events`, `/events/3`.
+- Ограничения: автоматической browser QA и скриншотов нет (браузера на хосте нет); дизайн принят владельцем по ручному просмотру. Тест `test_gateway_isolation` (`test_real_gateway_config_only_ignores_conflicting_environment`) и gateway smoke по умолчанию падают, пока подсеть 172.30.123.0/29 занята стеком `afisha_preview_*`; с `GATEWAY_TEST_NET_PREFIX=172.30.201` проходят. Набор не полностью зелёный в конфигурации по умолчанию.
+- Не сделано: мобильное меню-«бургер» (сейчас горизонтальная полоса ссылок).
+
 ## PR-16B — точная стоимость (2026-11-25, до review/merge)
 
 - Ветка `feature/pr16b-event-pricing` от origin/master `2b7da05` (PR #34 merged).
