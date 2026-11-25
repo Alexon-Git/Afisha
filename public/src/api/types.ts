@@ -48,3 +48,10 @@ export interface PaginatedEvents {
 }
 
 export interface Health { status: 'healthy' }
+
+export interface Article {
+  slug: string; title: string; excerpt: string | null; content: string | null;
+  cover_image_url: string | null; category: string | null; seo_title: string | null;
+  seo_description: string | null; author_name: string | null; published_at: string; updated_at: string;
+}
+export interface PaginatedArticles { items: Article[]; page: number; limit: number; total_items: number; total_pages: number }

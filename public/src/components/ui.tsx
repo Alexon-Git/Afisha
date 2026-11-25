@@ -22,7 +22,10 @@ export function EmptyState({ title, text, href = '/events', label = 'Смотр�
   return <div className="empty" role={alert ? 'alert' : undefined}><h2>{title}</h2><p>{text}</p><a href={href}>{label}</a></div>;
 }
 
-/** Content card styles for future SEO pages; no article model is implied. */
-export function ArticleCard({ href, title, excerpt, tag }: { href: string; title: string; excerpt: string; tag?: string }) {
-  return <article className="article-card">{tag && <CategoryBadge>{tag}</CategoryBadge>}<h3><a href={href}>{title}</a></h3><p>{excerpt}</p></article>;
+/** Content card for blog and future SEO pages. */
+export function ArticleCard({ href, title, excerpt, tag, image, date }: { href: string; title: string; excerpt: string; tag?: string; image?: string | null; date?: { text: string; iso: string } | null }) {
+  return <article className="article-card">
+    {image && <a href={href} tabIndex={-1} aria-hidden="true"><img className="article-card-img" src={image} alt="" loading="lazy" width={640} height={360} /></a>}
+    {tag && <CategoryBadge>{tag}</CategoryBadge>}<h3><a href={href}>{title}</a></h3>
+    {excerpt && <p>{excerpt}</p>}{date && <time dateTime={date.iso}>{date.text}</time>}</article>;
 }

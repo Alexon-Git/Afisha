@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import ImportDashboard from './pages/ImportDashboard';
+import ArticlesAdmin from './pages/ArticlesAdmin';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -12,6 +13,7 @@ function App() {
       <div className="App">
         <Routes>
           <Route path="/import" element={<ProtectedRoute><ImportDashboard /></ProtectedRoute>} />
+          <Route path="/articles" element={<ProtectedRoute><ArticlesAdmin /></ProtectedRoute>} />
           <Route path="/login" element={<AdminLogin />} />
           <Route 
             path="/"

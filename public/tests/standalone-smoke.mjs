@@ -14,6 +14,12 @@ async function listen(server) {
 }
 let events = fixtureEvents();
 let unavailable = false;
+const article = (n, over = {}) => ({ slug: `stat-${n}`, title: `Статья ${n}`, excerpt: `Кратко ${n}`, content: '## Раздел\n\nТекст **важный**.', cover_image_url: null,
+  category: n % 2 ? 'guides' : 'news', seo_title: null, seo_description: `Описание ${n}`, author_name: null,
+  published_at: '2026-11-26T10:00:00Z', updated_at: '2026-11-26T10:00:00Z', ...over, status: over.status || 'published' });
+let articles = [...Array.from({ length: 14 }, (_, i) => article(i + 1)),
+  article(90, { slug: 'draft-one', title: 'Скрытая статья', status: 'draft' }),
+  article(91, { slug: 'xss', title: 'XSS </script>', content: '<script>window.__injected=1</script>\n\n[bad](javascript:alert(1)) [ok](https://example.test/x)', author_name: 'Иван' })];
 const requests = [];
 const underscoreCategory = { id: 2, name: 'Деловые встречи', slug: 'business_meetings', is_active: true };
 const backend = createServer((request, response) => {
@@ -24,6 +30,22 @@ const backend = createServer((request, response) => {
   if (unavailable) {
     response.writeHead(503);
     response.end(JSON.stringify({ error: 'private-traceback-must-not-leak' }));
+    return;
+  }
+  if (url.pathname.startsWith('/articles/')) {
+    const live = articles.filter(a => a.status === 'published');
+    if (url.pathname === '/articles/categories') { response.end(JSON.stringify([...new Set(live.map(a => a.category))].sort())); return; }
+    if (url.pathname === '/articles/') {
+      const page = Number(url.searchParams.get('page') || 1), limit = Number(url.searchParams.get('limit') || 12);
+      const category = url.searchParams.get('category');
+      const items = live.filter(a => !category || a.category === category);
+      response.end(JSON.stringify({ items: items.slice((page - 1) * limit, page * limit).map(({ status, ...a }) => a), page, limit, total_items: items.length, total_pages: Math.ceil(items.length / limit) }));
+      return;
+    }
+    const found = live.find(a => a.slug === decodeURIComponent(url.pathname.slice('/articles/'.length)));
+    if (!found) response.writeHead(404);
+    const { status, ...body } = found || { detail: 'Article not found' };
+    response.end(JSON.stringify(body));
     return;
   }
   const visible = events.filter(event => event.publication_status === 'published');
@@ -78,7 +100,7 @@ async function html(base, path, status = 200) {
   const response = await fetch(base + path);
   assert.equal(response.status, status, path);
   const text = await response.text();
-  if (path === '/' || path.startsWith('/events')) assert.match(response.headers.get('cache-control') || '', /no-store/);
+  if (path === '/' || path.startsWith('/events') || path.startsWith('/blog')) assert.match(response.headers.get('cache-control') || '', /no-store/);
   assert.doesNotMatch(text, /private-traceback-must-not-leak|INTERNAL_API_URL|backend:8039/);
   return text.replace(/<!--[\s\S]*?-->/g, '');
 }
@@ -164,6 +186,45 @@ try {
     }
   }
   events = originalEvents;
+  // Blog: SSR list, pagination, categories, ad slot, article page, 404, XSS, JSON-LD, sitemap.
+  const blog = await html(base, '/blog');
+  assert.match(blog, /<h1[^>]*>Блог для предпринимателей<\/h1>/);
+  assert.match(blog, /Статья 1</);
+  assert.doesNotMatch(blog, /Скрытая статья/);
+  assert.match(blog, new RegExp(`rel="canonical" href="${base}/blog"`));
+  assert.match(blog, /Страница 1 из 2/);
+  assert.match(blog, /blog\?page=2/);
+  assert.match(blog, /category=guides/);
+  assert.doesNotMatch(blog, /class="ad-slot/, 'ad hidden when unconfigured in production');
+  const page2 = await html(base, '/blog?page=2');
+  assert.match(page2, /name="robots" content="noindex, nofollow"/);
+  assert.match(await html(base, '/blog?page=abc'), /Страница 1 из 2/);
+  const filtered = await html(base, '/blog?category=news');
+  assert.match(filtered, /name="robots" content="noindex, nofollow"/);
+  assert.ok(requests.some(url => url.pathname === '/articles/' && url.searchParams.get('category') === 'news'));
+  const one = await html(base, '/blog/stat-1');
+  assert.equal((one.match(/<h1[ >]/g) || []).length, 1);
+  assert.match(one, /<h2>Раздел<\/h2>/);
+  assert.match(one, /<strong>важный<\/strong>/);
+  assert.match(one, new RegExp(`rel="canonical" href="${base}/blog/stat-1"`));
+  assert.match(one, /property="og:type" content="article"/);
+  const articleLd = JSON.parse(one.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(articleLd['@type'], 'Article');
+  assert.equal(articleLd.datePublished, '2026-11-26T10:00:00.000Z');
+  assert.equal(articleLd.author, undefined);
+  assert.equal(articleLd.image, undefined);
+  const xss = await html(base, '/blog/xss');
+  assert.doesNotMatch(xss, /<script>window\.__injected/);
+  assert.match(xss, /&lt;script&gt;window\.__injected/);
+  assert.doesNotMatch(xss, /href="javascript:/);
+  assert.match(xss, /href="https:\/\/example.test\/x"[^>]*rel="noopener noreferrer nofollow"/);
+  assert.ok(!xss.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1].includes('<'));
+  for (const slug of ['draft-one', 'missing', 'Bad_Slug', '..%2Fx']) await html(base, `/blog/${slug}`, 404);
+  const blogMap = await html(base, '/sitemap.xml');
+  assert.match(blogMap, /<loc>[^<]*\/blog<\/loc>/);
+  assert.match(blogMap, /\/blog\/stat-14<\/loc>/);
+  assert.doesNotMatch(blogMap, /draft-one/);
+  assert.ok(requests.every(url => !url.pathname.startsWith('/admin')));
   for (const id of ['4', '5', '99999', 'abc', '2147483648']) await html(base, `/events/${id}`, 404);
   for (const [id, message] of [[2, 'отменено'], [3, 'перенесено']]) {
     const response = await html(base, `/events/${id}`);
@@ -199,6 +260,8 @@ try {
   assert.match(await html(base, '/'), /Сервис временно недоступен/);
   assert.match(await html(base, '/events'), /Сервис временно недоступен/);
   assert.match(await html(base, '/events/1'), /Сервис временно недоступен/);
+  assert.match(await html(base, '/blog'), /Сервис временно недоступен/);
+  assert.match(await html(base, '/blog/stat-1'), /Сервис временно недоступен/);
   await html(base, '/sitemap.xml', 503);
   unavailable = false;
   assert.match(await html(base, '/events/1'), /Встреча предпринимателей/);

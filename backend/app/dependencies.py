@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from .database import engine, get_db
 from .config import settings
 from .services.login_limiter import LoginLimiter
+from .services.article_service import ArticleService
 from .services.category_service import CategoryService
 from .services.event_service import EventService
 from .services.user_service import UserService
@@ -13,6 +14,10 @@ from .services.user_service import UserService
 
 def get_event_service(db: Session = Depends(get_db)) -> EventService:
     return EventService(db)
+
+
+def get_article_service(db: Session = Depends(get_db)) -> ArticleService:
+    return ArticleService(db)
 
 
 def get_user_service(db: Session = Depends(get_db)) -> UserService:
