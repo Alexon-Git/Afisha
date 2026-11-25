@@ -3,6 +3,7 @@ import argparse
 import copy
 import ipaddress
 import json
+import os
 from pathlib import Path
 import re
 import signal
@@ -12,6 +13,11 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
+# /29 test network prefix; override only to avoid a collision with another local stack.
+NET = os.environ.get('GATEWAY_TEST_NET_PREFIX', '172.30.123')
+require_prefix = re.fullmatch(r'172\.(1[6-9]|2\d|3[01])\.\d{1,3}', NET)
+if not require_prefix:
+    raise RuntimeError('Invalid GATEWAY_TEST_NET_PREFIX')
 sys.path.insert(0, str(ROOT / 'public/tests'))
 from compose_smoke import Smoke, require, check, LOCAL_CONTEXT
 
@@ -45,8 +51,8 @@ class GatewaySmoke(Smoke):
         self.ingress = self.project + '_ingress'
         self.created_clients = []
         self.values.update(POSTGRES_VOLUME_NAME=self.volume, GATEWAY_PORT='58080',
-                           GATEWAY_SUBNET='172.30.123.0/29', NGINX_PROXY_IP='172.30.123.2',
-                           BACKEND_GATEWAY_IP='172.30.123.3', PUBLIC_GATEWAY_IP='172.30.123.4',
+                           GATEWAY_SUBNET=NET + '.0/29', NGINX_PROXY_IP=NET + '.2',
+                           BACKEND_GATEWAY_IP=NET + '.3', PUBLIC_GATEWAY_IP=NET + '.4',
                            SITE_URL='',
                            LOGIN_SOURCE_LIMIT='3', LOGIN_ACCOUNT_LIMIT='1000')
         self.env_file.write_text(''.join(f'{key}={value}\n' for key, value in self.values.items()))
@@ -65,7 +71,7 @@ class GatewaySmoke(Smoke):
         require(config['networks']['ingress'] in ({'name': self.ingress}, {'name': self.ingress, 'ipam': {}}), 'Unexpected ingress network')
         gateway = config['networks']['gateway']
         require(gateway == {'name': self.gateway, 'internal': True,
-                            'ipam': {'config': [{'subnet': '172.30.123.0/29'}]}}, 'Unexpected gateway network')
+                            'ipam': {'config': [{'subnet': NET + '.0/29'}]}}, 'Unexpected gateway network')
         projected = copy.deepcopy(config)
         require(projected['services']['public']['environment'].pop('SITE_URL') == '', 'Unexpected local SITE_URL')
         nginx = projected['services'].pop('nginx')
@@ -73,7 +79,7 @@ class GatewaySmoke(Smoke):
                               'cap_drop', 'security_opt', 'pids_limit', 'command', 'entrypoint'}, 'Unexpected Nginx options')
         require(nginx.get('command') is None and nginx.get('entrypoint') is None, 'Unexpected Nginx command')
         require(nginx['build'] == {'context': str(ROOT), 'dockerfile': 'deploy/nginx/Dockerfile'}, 'Unexpected Nginx build')
-        require(nginx['networks'] == {'gateway': {'ipv4_address': '172.30.123.2'}, 'ingress': None}, 'Unexpected proxy IP')
+        require(nginx['networks'] == {'gateway': {'ipv4_address': NET + '.2'}, 'ingress': None}, 'Unexpected proxy IP')
         require(nginx['read_only'] and nginx['cap_drop'] == ['ALL'] and nginx['security_opt'] == ['no-new-privileges:true'], 'Unsafe Nginx privileges')
         mounts = nginx['volumes']
         require(len(mounts) == 1 and mounts[0]['type'] == 'bind' and mounts[0]['source'] == str(self.uploads)
@@ -85,8 +91,8 @@ class GatewaySmoke(Smoke):
         command = backend.pop('command')
         require(command[:2] == ['sh', '-ec'] and len(command) == 3 and
                 ' '.join(command[2].replace('$$', '$').split()) == ' '.join(STARTUP.split()), 'Unexpected trusted-proxy launcher')
-        require(backend['environment'].pop('TRUSTED_NGINX_IP') == '172.30.123.2', 'Unsafe trusted proxy')
-        for service, address in (('backend', '172.30.123.3'), ('public', '172.30.123.4')):
+        require(backend['environment'].pop('TRUSTED_NGINX_IP') == NET + '.2', 'Unsafe trusted proxy')
+        for service, address in (('backend', NET + '.3'), ('public', NET + '.4')):
             require(projected['services'][service]['networks'].pop('gateway') == {'ipv4_address': address}, 'Unexpected service IP')
         projected['networks'].pop('gateway')
         projected['networks'].pop('ingress')
@@ -99,11 +105,11 @@ class GatewaySmoke(Smoke):
             for subnet in network.get('IPAM', {}).get('Config') or []:
                 value = subnet.get('Subnet', '')
                 if ':' not in value and value:
-                    require(not ipaddress.ip_network('172.30.123.0/29').overlaps(ipaddress.ip_network(value)), 'Gateway subnet already in use')
+                    require(not ipaddress.ip_network(NET + '.0/29').overlaps(ipaddress.ip_network(value)), 'Gateway subnet already in use')
 
     def client(self, suffix, address, script):
         require(self.started and self.validated and self.fresh, 'Unvalidated test client')
-        require(suffix in {'a', 'b'} and address in {'172.30.123.5', '172.30.123.6'}, 'Unexpected client identity')
+        require(suffix in {'a', 'b'} and address in {NET + '.5', NET + '.6'}, 'Unexpected client identity')
         name = self.project + '-client-' + suffix
         require(name not in self.run('ps', '-a', '--format', '{{.Names}}').splitlines(), 'Client already exists')
         self.created_clients.append(name)
@@ -137,8 +143,8 @@ with SessionLocal.begin() as db:
         config = {'username': self.values['ADMIN_USERNAME'], 'password': self.values['ADMIN_PASSWORD']}
         # Credentials travel via stdin only. Never argv/env/logs.
         script = 'TEST_LOGIN = ' + repr(config) + '\n' + script
-        self.client('a', '172.30.123.5', script)
-        self.client('b', '172.30.123.6', '''
+        self.client('a', NET + '.5', script)
+        self.client('b', NET + '.6', '''
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 try:
@@ -151,12 +157,12 @@ else:
         # Public is an untrusted peer, even on the same gateway network.
         self.compose('exec', '-T', 'public', 'node', '-', input='''
 (async()=>{for(let i=0;i<4;i++){
-const r=await fetch('http://172.30.123.3:8039/auth/login',{method:'POST',headers:{
+const r=await fetch('http://__NET__.3:8039/auth/login',{method:'POST',headers:{
 'Content-Type':'application/x-www-form-urlencoded','X-Forwarded-For':'198.51.100.'+(20+i),
 'Forwarded':'for=203.0.113.'+i,'X-Real-IP':'192.0.2.'+i},body:'username=peer-'+i+'&password=wrong'});
 if(r.status!==(i<3?401:429))process.exit(1);
 }})().catch(()=>process.exit(1));
-''')
+'''.replace('__NET__', NET))
         for service in ('db', 'backend', 'public', 'nginx'):
             identifier = self.compose('ps', '-q', service).strip()
             container = json.loads(self.run('inspect', identifier))[0]

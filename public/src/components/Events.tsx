@@ -2,6 +2,7 @@ import { formatEventPrice } from '../domain/price';
 import type { Event } from '../api/types';
 import { eventPeriod } from '../domain/dates';
 import { Poster } from './Poster';
+import { CategoryBadge, EmptyState } from './ui';
 
 export function Status({ event }: { event: Event }) {
   if (event.event_status === 'cancelled') return <p className="notice cancelled" role="status">Мероприятие отменено. Уточните информацию у организатора.</p>;
@@ -17,11 +18,10 @@ export function EventDate({ value, endAt }: { value: string; endAt?: string | nu
 
 export function EventGrid({ events }: { events: Event[] }) {
   const visible = events.filter(event => event.publication_status === 'published');
-  if (!visible.length) return <div className="empty"><h2>Мероприятий пока нет</h2>
-    <p>Попробуйте другие даты или категорию. Новые встречи появятся после редакционной проверки.</p><a href="/events">Смотреть весь каталог</a></div>;
+  if (!visible.length) return <EmptyState title="Мероприятий пока нет" text="Попробуйте другие даты или категорию. Новые встречи появятся после редакционной проверки." />;
   return <div className="event-grid">{visible.map(event => <article className="event-card" key={event.id}>
     <a className="poster-link" href={`/events/${event.id}`} tabIndex={-1} aria-hidden="true"><Poster url={event.image_url} title={event.title} /></a>
-    <div className="card-body"><p className="category">{event.category?.name || 'Деловое мероприятие'}</p>
+    <div className="card-body"><CategoryBadge>{event.category?.name || 'Деловое мероприятие'}</CategoryBadge>
       <h3><a href={`/events/${event.id}`}>{event.title}</a></h3>
       <p className="event-time"><EventDate value={event.datetime} endAt={event.end_at} /></p>
       <p className="location">{event.location}</p><Status event={event} />
@@ -31,8 +31,7 @@ export function EventGrid({ events }: { events: Event[] }) {
 }
 
 export function ApiError() {
-  return <div className="empty" role="alert"><h2>Не удалось загрузить мероприятия</h2>
-    <p>Сервис временно недоступен. Попробуйте обновить страницу позже.</p><a href="/events">Вернуться в каталог</a></div>;
+  return <EmptyState alert title="Не удалось загрузить мероприятия" text="Сервис временно недоступен. Попробуйте обновить страницу позже." label="Вернуться в каталог" />;
 }
 
 export function DateNote() {

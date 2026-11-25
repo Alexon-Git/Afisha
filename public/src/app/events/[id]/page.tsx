@@ -8,6 +8,7 @@ import { eventJsonLd, pageMetadata } from '../../../domain/seo';
 import { externalUrl } from '../../../domain/safety';
 import { EventDate, Status, DateNote, ApiError } from '../../../components/Events';
 import { Poster } from '../../../components/Poster';
+import { Button, CategoryBadge } from '../../../components/ui';
 
 export const dynamic = 'force-dynamic';
 type Props = { params: Promise<{ id: string }> };
@@ -47,7 +48,7 @@ export default async function EventPage({ params }: Props) {
   const active = event.event_status === 'scheduled';
   return <main id="main" className="shell main detail">
     <a className="back-link" href="/events">← В каталог мероприятий</a>
-    <p className="eyebrow">{event.category?.name || 'Деловое мероприятие'}</p><h1>{event.title}</h1>
+    <CategoryBadge>{event.category?.name || 'Деловое мероприятие'}</CategoryBadge><h1 className="detail-title">{event.title}</h1>
     <Status event={event} />
     <div className="detail-grid"><div><Poster url={event.image_url} title={event.title} />
       <section className="description"><h2>О мероприятии</h2><p>{event.description || 'Подробности уточняйте у организатора.'}</p></section>
@@ -57,7 +58,7 @@ export default async function EventPage({ params }: Props) {
         {event.organizer?.name && <><dt>Организатор</dt><dd>{event.organizer.name}</dd></>}
         <dt>Стоимость</dt><dd>{formatEventPrice(event)}</dd>
       </dl><DateNote />
-      {active && url ? <a className="button registration" href={url} target="_blank" rel="noopener noreferrer nofollow">Перейти к регистрации ↗</a> : <p>{active ? 'Ссылка на регистрацию уточняется.' : 'Регистрация приостановлена. Проверьте актуальную информацию в первоисточнике.'}</p>}
+      {active && url ? <Button href={url} external>Перейти к регистрации ↗</Button> : <p className="notice">{active ? 'Ссылка на регистрацию уточняется.' : 'Регистрация приостановлена. Проверьте актуальную информацию в первоисточнике.'}</p>}
     </aside></div>
     {json && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />}
   </main>;
