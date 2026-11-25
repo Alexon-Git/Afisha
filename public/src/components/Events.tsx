@@ -25,7 +25,7 @@ export function EventGrid({ events }: { events: Event[] }) {
       <h3><a href={`/events/${event.id}`}>{event.title}</a></h3>
       <p className="event-time"><EventDate value={event.datetime} endAt={event.end_at} /></p>
       <p className="location">{event.location}</p><Status event={event} />
-      <div className="card-bottom"><span>{formatEventPrice(event.price)}</span><a href={`/events/${event.id}`} aria-label={`Подробнее о мероприятии «${event.title}»`}>Подробнее <span aria-hidden="true">↗</span></a></div>
+      <div className="card-bottom"><span>{formatEventPrice(event)}</span><a href={`/events/${event.id}`} aria-label={`Подробнее о мероприятии «${event.title}»`}>Подробнее <span aria-hidden="true">↗</span></a></div>
     </div>
   </article>)}</div>;
 }

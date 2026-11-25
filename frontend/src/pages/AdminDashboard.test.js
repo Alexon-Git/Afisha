@@ -162,11 +162,14 @@ test('published description edit sends only description, never the untouched UTC
   expect(eventsApi.update).toHaveBeenCalledWith(1, { description: 'Updated description' });
 });
 
-test.each([0, 125.5, null])('price edit preserves %s and omits every unchanged field', async price => {
+test.each([
+  ['free', null, null], ['fixed', '125.5', 'RUB'], ['unknown', null, null],
+])('price edit sends a complete structured %s price', async (kind, amount, currency) => {
   const form = await openEditor({ price: 100 });
-  change(form.querySelectorAll('input[type="number"]')[0], price === null ? '' : String(price));
+  change(form.querySelector('#price-kind'), kind);
+  if (amount) change(form.querySelector('#price-amount'), amount);
   await act(async () => Simulate.submit(form));
-  expect(eventsApi.update).toHaveBeenCalledWith(1, { price });
+  expect(eventsApi.update).toHaveBeenCalledWith(1, { price_kind: kind, price_amount: amount, price_max: null, currency });
 });
 
 test.each([
@@ -193,7 +196,7 @@ test('reverting changes and normalizing numeric and empty URL input does not sen
   const form = await openEditor({ price: 0, payment_url: null });
   change(form.querySelector('textarea'), 'Temporary');
   change(form.querySelector('textarea'), '');
-  change(form.querySelectorAll('input[type="number"]')[0], '0.00');
+  change(form.querySelector('#price-kind'), 'free');
   change(form.querySelector('input[aria-label="Ссылка на оплату"]'), '   ');
   await act(async () => Simulate.submit(form));
   expect(eventsApi.update).not.toHaveBeenCalled();
@@ -248,7 +251,7 @@ test('creation keeps the full EventCreate contract', async () => {
   expect(eventsApi.create).toHaveBeenCalledWith({
     title: 'Created', location: 'Novosibirsk', description: '',
     datetime: '2026-12-15T08:30:00Z', end_at: null, image_url: null,
-    category_id: null, price: null, rating: null, discount: null, payment_url: null,
+    category_id: null, price_kind: 'unknown', price_amount: null, price_max: null, currency: null, rating: null, discount: null, payment_url: null,
     organizer_id: null, event_url: null, source: null,
   });
   expect(eventsApi.update).not.toHaveBeenCalled();
@@ -448,4 +451,51 @@ test.each([['2026-11-23T20:00', '2026-11-23T13:00:00Z'], ['2026-11-26T18:00', '2
     datetime: '2026-11-23T11:00:00Z',
     end_at: expected,
   }));
+});
+
+
+test('exact range survives unrelated edits and switching kinds clears hidden sums', async () => {
+  const form = await openEditor({ price: null, price_kind: 'range', price_amount: '99999999999998.1234', price_max: '99999999999999.9999', currency: 'USD' });
+  expect(form.querySelector('#price-amount').value).toBe('99999999999998.1234');
+  change(form.querySelector('textarea'), 'Safe');
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.update).toHaveBeenCalledWith(1, { description: 'Safe' });
+});
+
+test.each(['unknown', 'free', 'by_request'])('switching range to %s clears sums and currency', async kind => {
+  const form = await openEditor({ price_kind: 'range', price_amount: '1.2345', price_max: '5', currency: 'USD' });
+  change(form.querySelector('#price-kind'), kind);
+  expect(form.querySelector('#price-amount')).toBeNull();
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.update).toHaveBeenCalledWith(1, { price_kind: kind, price_amount: null, price_max: null, currency: null });
+});
+
+test.each([['fixed','1500.50',null,'RUB'], ['from','20.5000',null,'USD'], ['range','1.2345','2.3456','EUR']])('creating %s preserves decimal strings', async (kind, amount, max, currency) => {
+  await render(); await click(button('Добавить мероприятие'));
+  const form = container.querySelector('form');
+  change(form.querySelector('input[type="text"]'), 'Pricing');
+  change(form.querySelectorAll('input[type="text"]')[1], 'NSK');
+  change(form.querySelector('[aria-label="Дата и время Новосибирска"]'), '2026-11-26T10:00');
+  change(form.querySelector('#price-kind'), kind);
+  change(form.querySelector('#price-amount'), amount);
+  if (max) change(form.querySelector('#price-max'), max);
+  change(form.querySelector('#price-currency'), currency);
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.create).toHaveBeenCalledWith(expect.objectContaining({ price_kind: kind, price_amount: amount.replace(/0+$/, '').replace(/\.$/, ''), price_max: max, currency }));
+});
+
+test.each(['NaN','Infinity','-1','0','1.12345','100000000000000'])('invalid money %s never reaches API', async value => {
+  const form = await openEditor({ price: 100 });
+  change(form.querySelector('#price-amount'), value);
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.update).not.toHaveBeenCalled();
+});
+
+test('range requires maximum and a valid currency before save', async () => {
+  const form = await openEditor({ price_kind:'range', price_amount:'10', price_max:'20', currency:'RUB' });
+  change(form.querySelector('#price-max'), '9');
+  await act(async () => Simulate.submit(form));
+  expect(eventsApi.update).not.toHaveBeenCalled();
+  change(form.querySelector('#price-max'), '20'); change(form.querySelector('#price-currency'), 'ABC');
+  await act(async () => Simulate.submit(form)); expect(eventsApi.update).not.toHaveBeenCalled();
 });

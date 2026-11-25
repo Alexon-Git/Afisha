@@ -1,5 +1,47 @@
 # Контекст разработки Afisha — технический снимок
 
+## PR-16B — точная стоимость (2026-11-25, до review/merge)
+
+- Ветка `feature/pr16b-event-pricing` от origin/master `2b7da05` (PR #34 merged).
+- Шесть состояний unknown/free/fixed/from/range/by_request. Новые суммы — Decimal,
+  PostgreSQL Numeric(18,4), API-строки, ISO 4217 из проверенного списка SIX.
+  Неизвестно/бесплатно/по запросу имеют NULL суммы и валюту; остальные требуют
+  положительной суммы <10^14, до четырёх знаков, валюта обязательна.
+- 0008 после 0007 аддитивно расширяет Event без пересоздания таблицы. Backfill
+  только из старого price: NULL→unknown, 0→free, positive int32→fixed RUB.
+  Старые данные не меняются, Candidate не используется для восстановления потерь.
+  Shape/compat constraints блокируют противоречия; на SQLite второй — abort triggers.
+- Общий pricing helper синхронизирует API/ORM: price=0 для free, int для целого fixed
+  RUB в int32, иначе NULL. Partial PUT сохраняет пропущенные поля; неизменённый
+  legacy price=NULL не стирает сложную цену; конфликт/замена сложной цены старым
+  полем → 422 до записи. Новый kind сбрасывает зависимые поля. Даты, end_at,
+  организаторы, публикация и прежняя некритичная семантика правок цены сохранены.
+- SQLite Event использует ExactMoney text для всех цифр; старая candidate-схема
+  Numeric не меняется, добавлен отказ при потенциальном округлении SQLite. Такие
+  импорты требуют PG17. Нет молчаливого округления; PG Numeric сохраняет все суммы.
+- JSON-LD jsonld-2 разбирает дроби как Decimal, учитывает Offer/AggregateOffer,
+  min/max и массивы одной валюты. Не выбирает первый offer; неоднозначность →
+  unknown+warning для редактора. Promote сохраняет тип/суммы/валюту, free/unknown
+  очищают несущественные поля. Повторная обработка не перезаписывает Event.
+- Admin: динамические поля, точные строки, валидация и полный согласованный набор
+  pricing fields только при изменении стоимости. Public: общий ru-RU форматтер
+  без Number для Decimal, все шесть типов на home/catalog/detail. SEO Offers не
+  добавлялись, метаданные/endDate и дизайн сохранены; новые зависимости отсутствуют.
+- Полный backend с отдельным PG17/tmpfs + SQLite: 807 passed, 6 skipped.
+  Финальные pricing/migration targets: 41 passed; четыре process/session TZ,
+  сохранность строк/OID/rootpage/metadata, bad legacy отказ до DDL, API/ORM/импорт.
+  Admin 104 passed в каждой из UTC/Novosibirsk/Moscow/Los_Angeles, build успешен.
+  Public 32 passed, typecheck/build/standalone SSR (все типы на трёх маршрутах) OK.
+  Compileall/diff-check OK. Точный SHA/CI фиксируются в итоговом PR/отчёте.
+- Browser host недоступен: мобильная визуальная QA не заявляется; SSR длинных цен
+  проверен. Временный mock preview остановлен. QA-stack/afisha_content_pg17/24 события,
+  production/VPS/старые worktree/stash не используются и не изменяются.
+- Ограничения: D-023 и backend/MIGRATIONS.md. Перед будущим upgrade остановить старые
+  binaries/writers: старые HTTP-клиенты совместимы с новым backend, старые binaries
+  после 0008 не должны писать. Downgrade теряет расширенные цены, нужен backup.
+  Следующее действие — независимое review PR-16B; PR-17 не начинать, merge/deploy нет.
+
+
 ## PR-16A — окончание и многодневные события (2026-11-25, до review/merge)
 
 - Ветка `feature/pr16a-event-end-date`, база origin/master `af18eb3`, PR #33 merged.

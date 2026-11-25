@@ -285,3 +285,60 @@ OR/COUNT и широкие окна могут требовать дальней
 Ранее импортированные события не дополняются автоматически из Candidate: это могло
 бы перезаписать ручные редакторские правки. Перенос окончания действует при новом
 создании draft; повторный импорт/конверсия не меняет уже связанный Event.
+
+## PR-16B: 0008_event_pricing (2026-11-25)
+
+Аддитивная migration от 0007: price_kind NOT NULL DEFAULT unknown, price_amount /
+price_max Numeric(18,4), currency VARCHAR(3). price и другие старые колонки остаются.
+PostgreSQL: lock_timeout=5s + ACCESS EXCLUSIVE на время backfill/constraints;
+SQLite: BEGIN IMMEDIATE. Таблица events не пересоздаётся; тест проверяет её OID /
+rootpage, исходные строки и metadata. До DDL проверяется корректность старых цен.
+Миграция не читает Candidate, не восстанавливает ранее потерянные суммы.
+
+Детерминированный backfill: price=NULL → unknown; 0 → free; положительный int32 →
+fixed RUB с точной суммой. Старое поле не изменяется. Shape CHECK проверяет шесть
+состояний/суммы/валюту; compatibility CHECK — согласованность price с проекцией.
+На SQLite второй CHECK эквивалентно обеспечен INSERT/UPDATE abort triggers:
+ALTER ADD table CHECK там требует перестройки таблицы, которой здесь нет.
+ExactMoney сохраняет SQLite Event как сортируемую десятичную строку фиксированной
+длины (VARCHAR(19)), без IEEE-754; PostgreSQL использует native Numeric(18,4).
+Суммы 0<amount<10^14, максимум 4 знака после точки. API возвращает Decimal строками;
+float-ввод новых сумм запрещён, целые JSON-числа и точные строки допускаются.
+
+Общий normalize_pricing используется EventCreate, EventService под блокировкой
+Event и ORM insert/update. Изменение только цены сохраняет прежнюю некритичную
+семантику (проверку/статус не сбрасывает), даты/organizer/editorial rules не меняются.
+Неуказанные поля сохраняются. Изменённый kind сбрасывает зависимые поля: для нового
+денежного типа нужно явно передать сумму/валюту. Неизменённый legacy price (в том
+числе NULL для диапазона) — no-op. Старым полем нельзя заменить сложную цену;
+противоречие между двумя форматами даёт 422 до записи, не потерю данных.
+
+Проекция: free → 0; целый fixed RUB <=2147483647 → int; иначе NULL. Raw SQL/bulk
+writers обязаны передавать согласованные представления; DB отклонит расхождение.
+**Порядок будущего обновления:** backup, остановка старых writers/backend, upgrade,
+запуск нового backend. Старый binary после 0008 писать безопасно не сможет;
+совместимость старых HTTP-клиентов обеспечивается новым backend, не rolling deploy.
+Реальная миграция production/afisha_content_pg17 этим PR не разрешается.
+Downgrade удаляет новые колонки и расширенные цены: legacy NULL уже не позволяет
+их восстановить. Нужны отдельный экспорт/backup и согласование rollback.
+
+JSON-LD adapter jsonld-2 читает числа через Decimal. Однозначные одинаковые тарифы
+дают fixed; подтверждённые min/max одной валюты — range; только low/min — from.
+Массив не выбирается по первому offer. Смешанные валюты, бесплатный+платный тариф,
+противоречивые и неполные данные → unknown + price_requires_review, без публикации.
+by_request не выводится из отсутствия данных; пока задаётся только редактором.
+Candidate schema/dedup/idempotency неизменны. CandidateMoney добавляет bind guard:
+на SQLite прежний Numeric может округлить большие суммы, поэтому такие записи
+отказывают целиком с причиной «requires PostgreSQL». Для полного точного импорта
+использовать PostgreSQL 17; Event в обеих СУБД сохраняет все цифры.
+
+Коды валют зафиксированы по [официальному списку ISO 4217 SIX](https://www.six-group.com/dam/download/financial-information/data-center/iso-currrency/lists/list-one.xml)
+(Pblshd=2026-09-17, проверено 2026-11-25). Runtime сетевых запросов нет. Изменение
+списка требует согласованной новой migration CHECK и обновления клиентских списков.
+Валюты не конвертируются и не округляются до национальных minor units.
+
+Тесты: test_event_pricing.py (включая отдельный PG17, четыре TZ, старые NULL/0/1500,
+identity таблицы/сохранность всех полей, constraints, API/ORM exact amounts, 422 и
+отказ плохой истории до DDL), test_import_complete.py (типы/тарифы/repeat/precision),
+существующие migration/time/workflow tests. Всё на синтетических данных; рабочая
+БД и 24 QA-записи не используются. Деплой/merge не выполняются.

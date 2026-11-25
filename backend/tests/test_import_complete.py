@@ -365,3 +365,73 @@ def test_promote_invalid_end_rolls_back(complete_api):
     with sessions() as db:
         assert db.query(Event).count() == 1
         assert db.get(EventCandidate,101).linked_event_id is None
+
+
+@pytest.mark.parametrize('kind,amount,maximum,currency,legacy', [
+    ('free','0',None,'RUB',0), ('fixed','1500',None,'RUB',1500),
+    ('fixed','1500.50',None,'RUB',None), ('fixed','20.50',None,'USD',None),
+    ('from','1000',None,'RUB',None), ('range','1000','2500','EUR',None),
+    ('unknown',None,None,None,None),
+])
+def test_promote_complete_pricing(complete_api,kind,amount,maximum,currency,legacy):
+    from decimal import Decimal
+    client,sessions,_=complete_api
+    with sessions.begin() as db:
+        c=db.get(EventCandidate,101)
+        c.price_kind=kind; c.price_amount=Decimal(amount) if amount else None
+        c.price_max=Decimal(maximum) if maximum else None; c.currency=currency
+    approve(client)
+    r=client.post(BASE+'/101/promote',json={'expected_revision':1}); assert r.status_code==200,r.text
+    eid=r.json()['linked_event_id']
+    with sessions() as db:
+        e=db.get(Event,eid)
+        assert e.price_kind==kind and e.price==legacy
+        assert e.price_amount==(Decimal(amount) if amount and kind!='free' else None)
+        assert e.price_max==(Decimal(maximum) if maximum else None)
+    assert client.put(f'/events/{eid}',json={'price_kind':'by_request'}).status_code==200
+    assert client.post(BASE+'/101/promote',json={'expected_revision':1}).status_code==200
+    with sessions() as db:
+        assert db.get(Event,eid).price_kind=='by_request' and db.query(Event).count()==2
+
+
+@pytest.mark.parametrize('offers,kind,low,high,currency', [
+    ({'price':'0'},'free','0',None,None),
+    ({'price':'1500.50','priceCurrency':'RUB'},'fixed','1500.50',None,'RUB'),
+    ({'price':'20.50','priceCurrency':'USD'},'fixed','20.50',None,'USD'),
+    ({'@type':'AggregateOffer','lowPrice':'1000','priceCurrency':'RUB'},'from','1000',None,'RUB'),
+    ({'@type':'AggregateOffer','lowPrice':'1000','highPrice':'2500','priceCurrency':'RUB'},'range','1000','2500','RUB'),
+    ([{'price':'1000','priceCurrency':'RUB'},{'price':'2500','priceCurrency':'RUB'}],'range','1000','2500','RUB'),
+    ([{'price':'10','priceCurrency':'RUB'},{'price':'20','priceCurrency':'USD'}],'unknown',None,None,None),
+    ([{'price':'0'},{'price':'20','priceCurrency':'RUB'}],'unknown',None,None,None),
+    ({'price':'NaN','priceCurrency':'RUB'},'unknown',None,None,None),
+    ({'lowPrice':'20','highPrice':'10','priceCurrency':'EUR'},'unknown',None,None,None),
+])
+def test_jsonld_prices_are_not_first_offer_guesses(offers,kind,low,high,currency):
+    from decimal import Decimal
+    facts=extract(json.dumps({**FACTS,'offers':offers}).encode(),'application/ld+json',URL)[0]['facts']
+    assert facts['price_kind']==kind and facts['currency']==currency
+    assert facts['price_amount']==(Decimal(low) if low else None)
+    assert facts['price_max']==(Decimal(high) if high else None)
+    if kind=='unknown': assert 'price_requires_review' in facts['warnings']
+
+
+def test_json_numeric_offer_avoids_float_parsing():
+    body=json.dumps(FACTS).replace('"0"','99999999999999.9999').encode()
+    from decimal import Decimal
+    assert extract(body,'application/ld+json',URL)[0]['facts']['price_amount']==Decimal('99999999999999.9999')
+
+
+def test_candidate_precision_never_silently_rounds(complete_api):
+    from decimal import Decimal
+    from sqlalchemy.exc import StatementError
+    _,sessions,_=complete_api
+    with sessions() as db:
+        c=db.get(EventCandidate,101)
+        c.price_kind='fixed'; c.currency='USD'; c.price_amount=Decimal('99999999999999.9999')
+        if db.bind.dialect.name=='sqlite':
+            with pytest.raises(StatementError,match='requires PostgreSQL'): db.flush()
+            db.rollback()
+        else:
+            db.flush(); db.expire(c)
+            assert c.price_amount==Decimal('99999999999999.9999')
+            db.rollback()

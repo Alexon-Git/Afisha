@@ -34,6 +34,9 @@ def test_migration_and_period_http_contract(time_database, monkeypatch, tmp_path
     with engine.connect() as db:
         row = dict(db.execute(text('SELECT * FROM events WHERE id=1')).mappings().one())
         assert row.pop('end_at') is None
+        assert row.pop('price_kind') == 'unknown'
+        for name in ('price_amount','price_max','currency'):
+            assert row.pop(name) is None
         assert row == before
         assert db.execute(text('SELECT count(*) FROM users')).scalar() == 1
         assert db.execute(text('SELECT count(*) FROM categories')).scalar() == 1

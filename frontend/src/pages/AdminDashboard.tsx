@@ -1,3 +1,4 @@
+import { pricingFromEvent, pricingPayload, pricingFields } from '../utils/pricing';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -54,7 +55,10 @@ const AdminDashboard: React.FC = () => {
     location: '',
     image_url: '',
     category_id: null,
-    price: null,
+    price_kind: 'unknown',
+    price_amount: null,
+    price_max: null,
+    currency: null,
     rating: null,
     discount: null,
     payment_url: null,
@@ -161,7 +165,7 @@ const AdminDashboard: React.FC = () => {
       location: event.location,
       image_url: event.image_url || '',
       category_id: event.category_id ?? event.category?.id ?? null,
-      price: event.price ?? null,
+      ...pricingFromEvent(event),
       rating: event.rating ?? null,
       discount: event.discount ?? null,
       payment_url: event.payment_url ?? null,
@@ -237,7 +241,6 @@ const AdminDashboard: React.FC = () => {
         value !== null && value !== undefined && !Number.isNaN(value) ? value : null;
 
       const normalizeFields = (data: EventCreate): Omit<EventCreate, 'datetime' | 'end_at'> => {
-        const normalizedPrice = normalizeNumber(data.price);
         const normalizedRating = normalizeNumber(data.rating);
         const normalizedDiscount = normalizeNumber(data.discount);
 
@@ -247,7 +250,7 @@ const AdminDashboard: React.FC = () => {
           location: data.location,
           image_url: data.image_url || null,
           category_id: data.category_id ?? null,
-          price: normalizedPrice !== null ? Math.max(0, normalizedPrice) : null,
+          ...pricingPayload(data),
           rating:
             normalizedRating !== null
               ? Math.round(Math.min(10, Math.max(0, normalizedRating)) * 10) / 10
@@ -280,6 +283,9 @@ const AdminDashboard: React.FC = () => {
           Object.entries(fields).filter(([key, value]) =>
             value !== original[key as keyof typeof original])
         );
+        if (pricingFields.some(key => fields[key] !== original[key])) {
+          Object.assign(payload, pricingPayload(formData));
+        }
         // Compare the Novosibirsk form snapshot first: untouched/reverted dates
         // never enter PUT, preserving server-side publication checks and precision.
         if (formData.datetime !== originalFormData.datetime) {
@@ -803,23 +809,25 @@ const AdminDashboard: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Стоимость (₽)
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={formData.price ?? ''}
-                      onChange={(e) =>
-                        setFormData(prev => ({
-                          ...prev,
-                          price: e.target.value === '' ? null : Math.max(0, Number(e.target.value)),
-                        }))
-                      }
-                      className="input-field"
-                      placeholder="Например, 1500"
-                    />
+                    <label htmlFor="price-kind" className="block text-sm font-medium text-gray-700 mb-2">Тип стоимости</label>
+                    <select id="price-kind" className="input-field" value={formData.price_kind || 'unknown'}
+                      onChange={e => setFormData(prev => ({ ...prev, price_kind: e.target.value as EventCreate['price_kind'],
+                        price_amount: null, price_max: null, currency: ['fixed','from','range'].includes(e.target.value) ? 'RUB' : null }))}>
+                      <option value="unknown">Стоимость неизвестна</option><option value="free">Бесплатно</option>
+                      <option value="fixed">Фиксированная</option><option value="from">От</option>
+                      <option value="range">Диапазон</option><option value="by_request">По запросу</option>
+                    </select>
+                    {['fixed','from','range'].includes(formData.price_kind || '') && <>
+                      <label htmlFor="price-amount">{formData.price_kind === 'fixed' ? 'Сумма' : 'Минимальная сумма'}</label>
+                      <input id="price-amount" className="input-field" inputMode="decimal" value={formData.price_amount ?? ''}
+                        onChange={e => setFormData(prev => ({ ...prev, price_amount: e.target.value }))} />
+                      {formData.price_kind === 'range' && <><label htmlFor="price-max">Максимальная сумма</label>
+                        <input id="price-max" className="input-field" inputMode="decimal" value={formData.price_max ?? ''}
+                          onChange={e => setFormData(prev => ({ ...prev, price_max: e.target.value }))} /></>}
+                      <label htmlFor="price-currency">Валюта ISO 4217</label>
+                      <input id="price-currency" className="input-field" value={formData.currency ?? ''}
+                        onChange={e => setFormData(prev => ({ ...prev, currency: e.target.value.toUpperCase() }))} />
+                    </>}
                   </div>
 
                   <div>

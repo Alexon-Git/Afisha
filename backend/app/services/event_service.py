@@ -21,6 +21,7 @@ from sqlalchemy import DateTime, asc, bindparam, desc, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
+from ..utils.pricing import FIELDS as PRICE_FIELDS, normalize_pricing
 from ..models.category import Category
 from ..models.event import Event
 from ..models.event_status import EventStatus, PublicationStatus
@@ -144,6 +145,11 @@ class EventService:
             self._validate_category(update_data["category_id"])
         if "organizer_id" in update_data:
             self._validate_organizer(update_data["organizer_id"])
+        if PRICE_FIELDS.intersection(update_data):
+            try:
+                update_data.update(normalize_pricing(update_data, {name: getattr(db_event, name) for name in PRICE_FIELDS}))
+            except ValueError as exc:
+                raise PublicationValidationError({'price': str(exc)}) from exc
         self._validate_period(db_event, update_data)
         critical_changes = sorted(field for field in self._CRITICAL_FIELDS.intersection(update_data)
                                   if update_data[field] != getattr(db_event, field))

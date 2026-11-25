@@ -149,6 +149,20 @@ try {
       }
     }
   }
+  for (const [pricing, label] of [
+    [{price_kind:'free'}, 'Бесплатно'], [{price_kind:'unknown'}, 'Стоимость уточняется'],
+    [{price_kind:'by_request'}, 'По запросу'],
+    [{price_kind:'fixed',price_amount:'1500.50',currency:'RUB'}, '1\u00a0500,50 ₽'],
+    [{price_kind:'fixed',price_amount:'20.50',currency:'USD'}, '20,50 USD'],
+    [{price_kind:'from',price_amount:'1000',currency:'RUB'}, 'От 1\u00a0000 ₽'],
+    [{price_kind:'range',price_amount:'1000',price_max:'2500',currency:'RUB'}, '1\u00a0000–2\u00a0500 ₽'],
+    [{price_kind:'fixed',price_amount:'99999999999999.9999',currency:'EUR'}, '99\u00a0999\u00a0999\u00a0999\u00a0999,9999 EUR'],
+  ]) {
+    events = [{ ...fixture, price:null, ...pricing }];
+    for (const path of ['/', '/events', '/events/1']) {
+      assert.ok((await html(base,path)).includes(label), `${path}: ${label}`);
+    }
+  }
   events = originalEvents;
   for (const id of ['4', '5', '99999', 'abc', '2147483648']) await html(base, `/events/${id}`, 404);
   for (const [id, message] of [[2, 'отменено'], [3, 'перенесено']]) {
