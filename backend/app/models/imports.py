@@ -8,6 +8,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 
 from ..database import Base
+from ..utils.pricing import CandidateMoney
 from ..utils.event_time import UTCDateTime
 
 
@@ -150,8 +151,8 @@ class EventCandidate(Base):
     organizer_url = Column(String(2048))
     proposed_organizer_id = Column(Integer, ForeignKey('organizers.id', ondelete='SET NULL'))
     price_kind = Column(String(16), nullable=False, server_default='unknown')
-    price_amount = Column(Numeric(18, 4))
-    price_max = Column(Numeric(18, 4))
+    price_amount = Column(CandidateMoney())
+    price_max = Column(CandidateMoney())
     currency = Column(String(3))
     proposed_event_status = Column(String(16))
     review_status = Column(String(32), nullable=False, server_default='pending')

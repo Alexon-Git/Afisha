@@ -1,3 +1,8 @@
+from decimal import Decimal
+from typing import Literal
+from pydantic import BeforeValidator
+from ..utils.pricing import FIELDS, normalize_pricing, amount
+
 from datetime import datetime as dt_datetime, timezone
 from typing import Annotated, List, Optional
 from urllib.parse import urlsplit
@@ -40,7 +45,18 @@ class EventMetadataInput(BaseModel):
         return data
 
 
-class EventBase(BaseModel):
+Money = Annotated[Decimal, BeforeValidator(amount)]
+PriceKind = Literal['unknown', 'free', 'fixed', 'from', 'range', 'by_request']
+
+
+class PricingFields(BaseModel):
+    price_kind: PriceKind = 'unknown'
+    price_amount: Optional[Money] = None
+    price_max: Optional[Money] = None
+    currency: Optional[str] = None
+
+
+class EventBase(PricingFields):
     title: str
     description: Optional[str] = None
     datetime: EventInstant
@@ -56,17 +72,24 @@ class EventBase(BaseModel):
 
 class EventCreate(EventBase, EventMetadataInput):
     @model_validator(mode="after")
+    def valid_pricing(self):
+        values = normalize_pricing(self.model_dump(include=FIELDS, exclude_unset=True))
+        for name, value in values.items():
+            setattr(self, name, value)
+        return self
+
+    @model_validator(mode="after")
     def valid_period(self):
         if self.end_at is not None and self.end_at <= self.datetime:
             raise ValueError("end_at must be strictly after datetime")
         return self
 
-    price: Optional[int] = Field(default=None, ge=0)
+    price: Optional[int] = Field(default=None, ge=0, le=2147483647)
     rating: Optional[float] = Field(default=None, ge=0, le=10)
     discount: Optional[int] = Field(default=None, ge=0, le=100)
 
 
-class EventUpdate(EventMetadataInput):
+class EventUpdate(EventMetadataInput, PricingFields):
     title: Optional[str] = None
     description: Optional[str] = None
     datetime: Optional[EventInstant] = None
@@ -74,7 +97,7 @@ class EventUpdate(EventMetadataInput):
     location: Optional[str] = None
     image_url: Optional[str] = None
     category_id: Optional[int] = None
-    price: Optional[int] = Field(default=None, ge=0)
+    price: Optional[int] = Field(default=None, ge=0, le=2147483647)
     rating: Optional[float] = Field(default=None, ge=0, le=10)
     discount: Optional[int] = Field(default=None, ge=0, le=100)
     payment_url: Optional[str] = None

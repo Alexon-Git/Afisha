@@ -20,6 +20,11 @@ export interface Event {
   image_url: string | null;
   category_id: number | null;
   price: number | null;
+  price_kind?: 'unknown' | 'free' | 'fixed' | 'from' | 'range' | 'by_request';
+  price_amount?: string | null;
+  price_max?: string | null;
+  currency?: string | null;
+
   rating: number | null;
   discount: number | null;
   payment_url: string | null;

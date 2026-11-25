@@ -1,5 +1,7 @@
-from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import CheckConstraint, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
+from sqlalchemy import event, inspect
+from ..utils.pricing import SHAPE_SQL, COMPAT_SQL, FIELDS, normalize_pricing, ExactMoney, sqlite_shape, sqlite_compat
 
 from ..database import Base
 from ..utils.event_time import UTCDateTime
@@ -19,6 +21,16 @@ class Event(Base):
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True)
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     price = Column(Integer, nullable=True)
+    price_kind = Column(String(16), nullable=False, default='unknown', server_default='unknown')
+    price_amount = Column(ExactMoney(), nullable=True)
+    price_max = Column(ExactMoney(), nullable=True)
+    currency = Column(String(3), nullable=True)
+    __table_args__ = (
+        CheckConstraint(SHAPE_SQL, name='ck_events_pricing_shape').ddl_if(dialect='postgresql'),
+        CheckConstraint(sqlite_shape(SHAPE_SQL), name='ck_events_pricing_shape').ddl_if(dialect='sqlite'),
+        CheckConstraint(COMPAT_SQL, name='ck_events_pricing_compat').ddl_if(dialect='postgresql'),
+        CheckConstraint(sqlite_compat(COMPAT_SQL), name='ck_events_pricing_compat').ddl_if(dialect='sqlite'),
+    )
     rating = Column(Float, nullable=True)
     discount = Column(Integer, nullable=True)
     payment_url = Column(String, nullable=True)
@@ -43,3 +55,19 @@ class Event(Base):
     creator = relationship("User", back_populates="events")
     category = relationship("Category", back_populates="events")
     organizer = relationship("Organizer", back_populates="events")
+
+
+@event.listens_for(Event, 'before_insert')
+@event.listens_for(Event, 'before_update')
+def synchronize_pricing(mapper, connection, target):
+    state = inspect(target)
+    patch = {name: getattr(target, name) for name in FIELDS if state.attrs[name].history.has_changes()}
+    if not patch and not state.pending:
+        return
+    current = None if state.pending else {
+        name: state.attrs[name].history.deleted[0] if state.attrs[name].history.deleted else getattr(target, name)
+        for name in FIELDS
+    }
+    values = normalize_pricing(patch, current)
+    for name, value in values.items():
+        setattr(target, name, value)

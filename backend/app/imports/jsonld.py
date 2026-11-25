@@ -1,6 +1,6 @@
 """Extract bounded factual Event records, never description/image/contact/HTML."""
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from html.parser import HTMLParser
 import json
 import re
@@ -8,9 +8,10 @@ import unicodedata
 from urllib.parse import urljoin
 
 from ..utils.event_time import as_utc
+from .pricing import normalized_price
 from .policy import ImportFailure, digest, safe_url
 
-VERSION = 'jsonld-1'
+VERSION = 'jsonld-2'
 TYPES = {'Event','BusinessEvent','ConferenceEvent','EducationEvent','SocialEvent'}
 
 
@@ -80,7 +81,7 @@ def extract(body, content_type, source_url):
             if len(result) > 50:
                 raise ImportFailure('record_limit')
         for script in scripts[:20]:
-            walk(json.loads(script))
+            walk(json.loads(script, parse_float=Decimal))
         if not result:
             raise ImportFailure('no_events')
         return result
@@ -130,23 +131,7 @@ def normalize(raw, source_url):
         warnings.append('city_requires_review')
     organizer = raw.get('organizer')
     organizer = organizer if isinstance(organizer,dict) else {}
-    offer = raw.get('offers')
-    price = None
-    currency = None
-    price_kind = 'unknown'
-    if isinstance(offer,dict):
-        currency = clean(offer.get('priceCurrency'),3)
-        try:
-            price = Decimal(str(offer.get('price')))
-            if not price.is_finite() or price < 0 or price >= Decimal('100000000000000') or price.as_tuple().exponent < -4:
-                raise InvalidOperation()
-            price_kind = 'free' if price == 0 else 'fixed'
-        except (InvalidOperation, ValueError):
-            price = None
-    if isinstance(offer,list):
-        warnings.append('multiple_offers')
-    if raw.get('isAccessibleForFree') is True and price is None:
-        price, price_kind = Decimal(0),'free'
+    price_kind, price, price_max, currency = normalized_price(raw, warnings)
     event_url = url(raw.get('url'))
     identity = url(raw.get('@id')) or event_url
     source_item_key = digest(identity or {'title':key(title),'start':original})
@@ -156,7 +141,7 @@ def normalize(raw, source_url):
         time_evidence={'kind':'explicit_offset' if start else 'unresolved'},
         city=city,normalized_city=normalized_city,venue_name=clean(location.get('name'),512),
         address=clean(address.get('streetAddress'),1024),organizer_name=clean(organizer.get('name'),255),
-        organizer_url=url(organizer.get('url')),price_kind=price_kind,price_amount=price,currency=currency,
+        organizer_url=url(organizer.get('url')),price_kind=price_kind,price_amount=price,price_max=price_max,currency=currency,
         proposed_event_status={'EventCancelled':'cancelled','EventPostponed':'postponed','EventScheduled':'scheduled'}.get(
             str(raw.get('eventStatus','')).rsplit('/',1)[-1]), warnings=warnings)
     if not title:

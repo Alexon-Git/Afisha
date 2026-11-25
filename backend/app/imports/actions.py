@@ -85,14 +85,12 @@ def transfer(db,cid,change,actor_id,kind):
             location=', '.join(filter(None,[c.venue_name,c.address]))
             if not c.title or not c.title.strip() or not location:
                 raise HTTPException(422,'Title and location are required')
-            price=None
-            if c.price_kind=='free':
-                price=0
-            elif c.price_kind=='fixed' and c.currency=='RUB' and c.price_amount is not None and c.price_amount==int(c.price_amount) and c.price_amount<=2147483647:
-                price=int(c.price_amount)
+            pricing=dict(price_kind=c.price_kind,price_amount=c.price_amount,price_max=c.price_max,currency=c.currency)
+            if c.price_kind in {'free','unknown'}:
+                pricing.update(price_amount=None,price_max=None,currency=None)
             payload=EventCreate(title=c.title,description=c.neutral_description,datetime=c.start_at,end_at=c.end_at,
                 location=location,organizer_id=organizer,event_url=c.official_event_url,
-                source=safe_url(c.source_url),price=price)
+                source=safe_url(c.source_url),**pricing)
             target=Event(**payload.model_dump(),creator_id=actor_id,publication_status='draft',
                          event_status='scheduled',verified_at=None)
             db.add(target)
